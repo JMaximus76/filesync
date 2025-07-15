@@ -1,55 +1,58 @@
-Project name: Jacob's File Sync
+# Jacob's File Sync
 
-General Naming:
-    Public tokens must be prepended with (jfs_[mod id]_)
-    Private tokens must be prepended with ([mod id]_)
-    Public typedefs must be postpended with (_t)
+## General Naming
 
-Struct Naming:
-    Public structs must be defined using the struct keyword, and must also
-    expose all members. Struct members that are themseles structs should use
-    the typedef form where available.
+- Public tokens must be prepended with: `jfs_[mod id]_`
+- Private tokens must be prepended with: `[mod id]_`
+- Public typedefs must be postpended with: `_t`
 
-Double ptr should be named with:
-    *_ptr  (pre allocated) (ownership kept)
-    *_give (pre allocated) (ownership lost)
-    *_take (not allocated) (ownership gained)
+### Struct Naming
 
+- Public structs must be defined using the `struct` keyword and must expose all members.
+- Struct members that are themselves structs should use the typedef form where available.
 
-System Requirements:
-    - Linux kernel 5.10+ (inotify, epoll)
-    - max_user_watches at least 16384 recommended
+### Double Pointer Ownership Conventions
 
-Other:
-    - All char buffers for file names and file paths should use PATH_MAX + 1 and NAME_MAX + 1
-    - If an error occurs MUST guarantee that all double ptrs remain unchanged AND their memory is intact
+- `*_ptr` → Pre-allocated (ownership kept)  
+- `*_give` → Pre-allocated (ownership lost)  
+- `*_take` → Not allocated (ownership gained)  
 
+## System Requirements
 
-Modules:
-    Net Socket (jfs_ns_*)
-        - TCP socket management
-        - send/recv wrappers
-        - socket file descriptor manageent
+- Linux kernel 5.10+ (inotify, epoll)
+- `max_user_watches` at least 16,384 recommended
 
-    File Walk (jfs_fw_*)
-        - directory scanning
-        - stat metadata collection
-        - controlls tree walks
+## Other Notes
 
-    File IO (jfs_fio_*)
-        - file read/write wrappers
+- All `char` buffers for file names and file paths should use `PATH_MAX + 1` and `NAME_MAX + 1`.
+- If an error occurs, it must guarantee that all double pointers remain unchanged and their memory is intact.
 
+## Modules
 
-Errors:
-    Error type: jfs_error_t
-    Format 1: JFS_ERR_*
-    Format 2: JFS_[mod abvr]_ERR_*
+### Net Socket (`jfs_ns_*`)
+- TCP socket management
+- `send`/`recv` wrappers
+- Socket file descriptor management
 
-    JFS_OK (equals 0)
-        _ No error.
+### File Walk (`jfs_fw_*`)
+- Directory scanning
+- `stat` metadata collection
+- Controls tree walks
 
-    JFS_ERR_RESOURCE
-        - Unrecoverable system resource exhaustion. Program must exit.
+### File IO (`jfs_fio_*`)
+- File read/write wrappers
 
+## Errors
 
+- **Error type:** `jfs_error_t`  
+- **Format 1:** `JFS_ERR_*`  
+- **Format 2:** `JFS_[mod abvr]_ERR_*`
+
+### Defined Errors
+
+- `JFS_OK` (equals 0)  
+  _No error._
+
+- `JFS_ERR_RESOURCE`  
+  Unrecoverable system resource exhaustion. Program must exit.
 
