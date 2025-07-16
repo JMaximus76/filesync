@@ -1,11 +1,18 @@
 #ifndef JFS_ERROR_H
 #define JFS_ERROR_H
 
+#include <stdio.h>
+
+#define TEMP_LOG(err_var) \
+    printf("ERROR (%d): %s\n    %s\n", (err_var), __FILE__, __func__)
+
 
 #define RETURN_ERR(err_var) \
     do {                    \
+        TEMP_LOG(err_var);  \
         return (err_var);   \
     } while (0)
+
 
 #define CHECK_ERR(err_expr)                    \
     do {                                       \
@@ -43,30 +50,34 @@
 #define JFS_ERR jfs_error_t __attribute__((warn_unused_result))
 
 
+#define JFS_ERROR_LIST \
+    X(JFS_OK) \
+    X(JFS_ERR_MAP) \
+    X(JFS_ERR_RESOURCE) \
+    X(JFS_ERR_ARG) \
+    X(JFS_ERR_FATAL) \
+    X(JFS_ERR_EMPTY_STACK) \
+    X(JFS_ERR_NOT_DIR) \
+    X(JFS_ERR_ACCESS) \
+    X(JFS_ERR_PATH_LEN) \
+    X(JFS_ERR_NAME_LEN) \
+    X(JFS_ERR_INVAL_PATH) \
+    X(JFS_ERR_INVAL_NAME) \
+    X(JFS_ERR_BAD_FD) \
+    X(JFS_FIO_ERR_PATH_OVERFLOW) \
+    X(JFS_FW_ERR_SKIP) \
+    X(JFS_FW_ERR_STATE) \
+
 typedef enum {
-    JFS_OK = 0,
-    JFS_ERR_MAP,
-    JFS_ERR_RESOURCE,
-    JFS_ERR_ARG,
-    JFS_ERR_FATAL,
-    JFS_ERR_EMPTY_STACK,
-    JFS_ERR_NOT_DIR,
-    JFS_ERR_ACCESS,
-    JFS_ERR_PATH_LEN,
-    JFS_ERR_NAME_LEN,
-    JFS_ERR_INVAL_PATH,
-    JFS_ERR_INVAL_NAME,
-    JFS_ERR_PATH_OVERFLOW,
-    JFS_ERR_BAD_FD,
-
-    JFS_FW_ERR_SKIP,
-    JFS_FW_ERR_STATE,
+    #define X(name) name,
+        JFS_ERROR_LIST
+    #undef X
 } jfs_error_t;
-
 
 
 JFS_ERR jfs_err_lstat(int err);
 JFS_ERR jfs_err_opendir(int err);
+const char* jfs_err_to_string(jfs_error_t err);
 
 #endif
 

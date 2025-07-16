@@ -4,8 +4,11 @@ project(jfs LANGUAGES C)
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIREED ON)
 
+set(CMAKE_C_FLAGS_DEBUG "-Wall -Wextra -Wconversion -O0 -g")
+set(CMAKE_C_FLAGS "-Wall -Wextra -Wconversion -O3 -funroll-loops")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_library(jfs_modules STATIC
     src/modules/error.c
@@ -13,7 +16,7 @@ add_library(jfs_modules STATIC
     src/modules/file_walk.c
 )
 
-target_include_directories(jfs_modules PUBLIC src/include)
+target_include_directories(jfs_modules PUBLIC ${CMAKE_SOURCE_DIR}/src/include)
 
 add_executable(test src/test/test.c)
 target_link_libraries(test PRIVATE jfs_modules)
