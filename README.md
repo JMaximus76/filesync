@@ -13,9 +13,17 @@
 
 ### Double Pointer Ownership Conventions
 
-- `*_ptr` → Pre-allocated (ownership kept)  
-- `*_give` → Pre-allocated (ownership lost)  
-- `*_take` → Not allocated (ownership gained)  
+- `*_ptr` → Pre-allocated (ownership kept)
+- `*_give` → Pre-allocated (ownership lost)
+- `*_take` → Not allocated (ownership gained)
+
+### Function Naming Conventions
+
+- `[prefix]_[struct]_create`: Allocates and returns a new struct.
+- `[prefix]_[struct]_free`: Frees a struct from `create`.
+- `[prefix]_[struct]_init`: Initializes a pre-allocated struct, may allocate members.
+- `[prefix]_[struct]_destroy`: Frees members of a struct from `init`.
+- `[prefix]_[struct]_transfer`: Moves ownership of members from one `init`-struct to another.
 
 ## System Requirements
 
