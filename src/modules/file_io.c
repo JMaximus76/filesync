@@ -1,8 +1,7 @@
 #include "file_io.h"
-
-#include <string.h>
-#include <stdio.h>
 #include <limits.h>
+#include <stdio.h>
+#include <string.h>
 
 void jfs_fio_normalize_path(char *path_buf) {
     size_t len = strlen(path_buf);

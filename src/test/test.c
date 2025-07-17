@@ -1,8 +1,7 @@
-#include "file_walk.h"
 #include "error.h"
-
-#include <stdio.h>
+#include "file_walk.h"
 #include <inttypes.h>
+#include <stdio.h>
 #include <time.h>
 
 void jfs_fw_walk_print(const jfs_fw_walk_t *walk) {
@@ -17,25 +16,20 @@ void jfs_fw_walk_print(const jfs_fw_walk_t *walk) {
         // Print directory ID info
         printf("  [Dir %zu]\n", i);
         printf("    path: \"%s\"\n", dir->id->path);
-        printf("    inode: %" PRIuMAX "\n", (uintmax_t)dir->id->inode);
+        printf("    inode: %" PRIuMAX "\n", (uintmax_t) dir->id->inode);
         printf("    contains %zu entries:\n", dir->file_count);
 
         // Print each file in the directory
         for (size_t j = 0; j < dir->file_count; j++) {
             const jfs_fw_file_t *f = &dir->file_arr[j];
             // format modification time
-            char timestr[64] = {0};
+            char      timestr[64] = {0};
             struct tm tm;
             localtime_r(&f->mod_time.tv_sec, &tm);
             strftime(timestr, sizeof timestr, "%Y-%m-%d %H:%M:%S", &tm);
 
-            printf("      [%zu] name=\"%s\", inode=%" PRIuMAX ", mode=0%o, size=%jd, mtime=%s\n",
-                   j,
-                   f->name,
-                   (uintmax_t)f->inode,
-                   f->mode & 07777,
-                   (intmax_t)f->size,
-                   timestr);
+            printf("      [%zu] name=\"%s\", inode=%" PRIuMAX ", mode=0%o, size=%jd, mtime=%s\n", j, f->name, (uintmax_t) f->inode, f->mode & 07777,
+                   (intmax_t) f->size, timestr);
         }
     }
 }
@@ -48,7 +42,9 @@ JFS_ERR some_function(jfs_fw_walk_t **walk_take) {
 
     while (jfs_fw_walk_check(state)) {
         err = jfs_fw_walk_step(state);
-        if (err == JFS_FW_ERR_SKIP) continue;
+        if (err == JFS_FW_ERR_SKIP) {
+            continue;
+        }
         GOTO_ERR(err, clean);
     }
 
@@ -63,14 +59,13 @@ clean:
     RETURN_ERR(err);
 }
 
-
 int main() {
     struct timespec start, end;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
 
     jfs_fw_walk_t *walk;
-    jfs_error_t err = some_function(&walk);
+    jfs_error_t    err = some_function(&walk);
 
     clock_gettime(CLOCK_MONOTONIC, &end);
 

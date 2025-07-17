@@ -1,8 +1,8 @@
 #include "net_socket.h"
-#include <unistd.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 int main() {
     struct net_socket *server = net_socket_create();
@@ -34,7 +34,6 @@ int main() {
 
     printf("connected to client\n");
 
-
     size_t size_of_file;
 
     ssize_t size_recv = net_socket_recv(connection, &size_of_file, sizeof(size_of_file));
@@ -63,7 +62,7 @@ int main() {
 
     size_t tr;
     size_t tw;
-    int status = net_socket_file_recv(connection, fd, size_of_file, &tr, &tw);
+    int    status = net_socket_file_recv(connection, fd, size_of_file, &tr, &tw);
     if (status == -1) {
         perror("error on file recv");
         net_socket_destroy(&connection);
@@ -85,8 +84,6 @@ int main() {
 
     printf("size recv: %zu\n", tr);
     printf("size written: %zu\n", tw);
-
-
 
     net_socket_shutdown(connection);
     char recv_buf[4000];

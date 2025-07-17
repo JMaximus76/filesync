@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 4.0)
-project(jfs LANGUAGES C)
+project(jacobs-file-sync LANGUAGES C)
+
+find_program(CLANG_TIDY_EXE NAMES "clang-tidy")
+
+if(CLANG_TIDY_EXE)
+    set(CMAKE_C_CLANG_TIDY "${CLANG_TIDY_EXE}")
+endif()
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIREED ON)

@@ -1,10 +1,10 @@
 #include "net_socket.h"
-#include <stdio.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 int main() {
     struct net_socket *client = net_socket_create();
@@ -25,7 +25,7 @@ int main() {
 
     printf("connected\n");
 
-    int fd = open("pic.jpg", O_RDONLY);  
+    int fd = open("pic.jpg", O_RDONLY);
     if (fd == -1) {
         perror("failed to open file");
         net_socket_destroy(&client);
@@ -54,14 +54,19 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-
     printf("starting send\n");
     size_t total_sent = 0;
-    int file_status = net_socket_file_send(client, fd, sb.st_size, &total_sent);
+    int    file_status = net_socket_file_send(client, fd, sb.st_size, &total_sent);
     if (file_status < 0) {
-        if (file_status == -1) perror("failed to read");
-        if (file_status == -2) perror("failed to send");
-        if (file_status == -3) perror("file size to small");
+        if (file_status == -1) {
+            perror("failed to read");
+        }
+        if (file_status == -2) {
+            perror("failed to send");
+        }
+        if (file_status == -3) {
+            perror("file size to small");
+        }
         net_socket_destroy(&client);
     }
 
@@ -80,7 +85,6 @@ int main() {
             net_socket_destroy(&client);
             exit(EXIT_FAILURE);
         }
-
     }
 
     net_socket_destroy(&client);

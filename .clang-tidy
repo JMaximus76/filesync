@@ -1,0 +1,11 @@
+Checks: >
+  bugprone-*,
+  performace-*,
+  readability-*
+
+WarningsAsErrors: ''
+HeaderFilterRegex: ''
+FormatStyle: file
+
+CheckOptions:
+  - { key: readability-identifier-length.MinimumVariableNameLength, value: 2 }

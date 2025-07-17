@@ -1,29 +1,27 @@
 #include "file_walk.h"
 #include "error.h"
 #include "file_io.h"
-
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <string.h>
 #include <dirent.h>
-#include <sys/types.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 typedef struct fw_file_node  fw_file_node_t;
 typedef struct fw_file_stack fw_file_stack_t;
 
 struct fw_file_node {
     fw_file_node_t *next;
-    jfs_fw_file_t *file;
+    jfs_fw_file_t  *file;
 };
 
 struct fw_file_stack {
-    jfs_fw_id_t *id;
-    size_t file_count;
+    jfs_fw_id_t    *id;
+    size_t          file_count;
     fw_file_node_t *head;
 };
-
 
 static JFS_ERR fw_file_stack_create(jfs_fw_id_t **id_give, fw_file_stack_t **stack_take);
 static void    fw_file_stack_free(fw_file_stack_t **stack_give);
@@ -38,9 +36,6 @@ static JFS_ERR fw_file_create(const char *file_name, const struct stat *file_sta
 static JFS_ERR fw_state_id_push(jfs_fw_state_t *state, jfs_fw_id_t **id_give);
 static JFS_ERR fw_state_id_pop(jfs_fw_state_t *state, jfs_fw_id_t **id_take);
 static JFS_ERR fw_state_dir_push(jfs_fw_state_t *state, jfs_fw_dir_t **dir_give);
-
-
-
 
 jfs_error_t jfs_fw_state_create(const char *path, ino_t inode, jfs_fw_state_t **state_take) {
     jfs_error_t err;
@@ -75,7 +70,9 @@ jfs_error_t jfs_fw_state_create(const char *path, ino_t inode, jfs_fw_state_t **
 }
 
 void jfs_fw_state_free(jfs_fw_state_t **state_give) {
-    if (state_give == NULL || *state_give == NULL) return;
+    if (state_give == NULL || *state_give == NULL) {
+        return;
+    }
     jfs_fw_state_t *state = *state_give;
 
     jfs_fw_id_node_t *id_node = state->id_head;
@@ -98,7 +95,7 @@ void jfs_fw_state_free(jfs_fw_state_t **state_give) {
     *state_give = NULL;
 }
 
-//closedir() is never checked for error (i don't care)
+// closedir() is never checked for error (i don't care)
 jfs_error_t jfs_fw_walk_step(jfs_fw_state_t *state) {
     jfs_error_t err;
 
@@ -116,25 +113,29 @@ jfs_error_t jfs_fw_walk_step(jfs_fw_state_t *state) {
     if (s_dir == NULL) {
         fw_file_stack_free(&file_stack);
         err = jfs_err_opendir(errno);
-        if (err == JFS_ERR_ACCESS) err = JFS_FW_ERR_SKIP;
+        if (err == JFS_ERR_ACCESS) {
+            err = JFS_FW_ERR_SKIP;
+        }
         RETURN_ERR(err);
     }
 
     errno = 0;
     struct dirent *ent;
-    char path_buf[PATH_BUF];
+    char           path_buf[PATH_BUF];
     strcpy(path_buf, file_stack->id->path);
     size_t path_end = strlen(path_buf);
     while ((ent = readdir(s_dir)) != NULL) {
         if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) {
             continue;
         }
-        GOTO_ERR_SET(err, jfs_fio_change_path(path_buf,path_end, ent->d_name), cleanup);
+        GOTO_ERR_SET(err, jfs_fio_change_path(path_buf, path_end, ent->d_name), cleanup);
 
         struct stat st;
         if (lstat(path_buf, &st) != 0) {
             err = jfs_err_lstat(errno);
-            if (err == JFS_ERR_ACCESS) continue;
+            if (err == JFS_ERR_ACCESS) {
+                continue;
+            }
             GOTO_ERR(err, cleanup);
         }
 
@@ -149,7 +150,9 @@ jfs_error_t jfs_fw_walk_step(jfs_fw_state_t *state) {
             }
         }
     }
-    if (errno != 0) GOTO_ERR_SET(err, JFS_ERR_BAD_FD, cleanup);
+    if (errno != 0) {
+        GOTO_ERR_SET(err, JFS_ERR_BAD_FD, cleanup);
+    }
     closedir(s_dir);
 
     jfs_fw_dir_t *dir;
@@ -206,9 +209,10 @@ jfs_error_t jfs_fw_walk_create(jfs_fw_state_t **state_give, jfs_fw_walk_t **walk
     return JFS_OK;
 }
 
-
 void jfs_fw_walk_free(jfs_fw_walk_t **walk_give) {
-    if (walk_give == NULL || *walk_give == NULL) return;
+    if (walk_give == NULL || *walk_give == NULL) {
+        return;
+    }
 
     jfs_fw_walk_t *walk = *walk_give;
     for (size_t i = 0; i < walk->count; i++) {
@@ -221,7 +225,6 @@ void jfs_fw_walk_free(jfs_fw_walk_t **walk_give) {
     free(walk);
     *walk_give = NULL;
 }
-
 
 static jfs_error_t fw_file_stack_create(jfs_fw_id_t **id_give, fw_file_stack_t **stack_take) {
     *stack_take = malloc(sizeof(**stack_take));
@@ -237,7 +240,9 @@ static jfs_error_t fw_file_stack_create(jfs_fw_id_t **id_give, fw_file_stack_t *
 }
 
 static void fw_file_stack_free(fw_file_stack_t **stack_give) {
-    if (stack_give == NULL || *stack_give == NULL) return;
+    if (stack_give == NULL || *stack_give == NULL) {
+        return;
+    }
 
     fw_file_stack_t *stack = *stack_give;
     free(stack->id);
@@ -275,7 +280,7 @@ static jfs_error_t fw_file_stack_to_dir(fw_file_stack_t **stack_give, jfs_fw_dir
 
     fw_file_stack_t *stack = *stack_give;
     dir->file_count = stack->file_count;
-    if (dir->file_count > 0 ) {
+    if (dir->file_count > 0) {
         dir->file_arr = malloc(dir->file_count * sizeof(*(dir->file_arr)));
         if (dir->file_arr == NULL) {
             free(dir);
@@ -293,14 +298,15 @@ static jfs_error_t fw_file_stack_to_dir(fw_file_stack_t **stack_give, jfs_fw_dir
     }
 
     dir->id = stack->id;
-    stack->id = NULL; //so the id doesn't get freed on fw_file_stack_free()
+    stack->id = NULL; // so the id doesn't get freed on fw_file_stack_free()
     fw_file_stack_free(stack_give);
     return JFS_OK;
 }
 
-
 static void fw_dir_free(jfs_fw_dir_t **dir_give) {
-    if (dir_give == NULL || *dir_give == NULL) return;
+    if (dir_give == NULL || *dir_give == NULL) {
+        return;
+    }
 
     jfs_fw_dir_t *dir = *dir_give;
     free(dir->file_arr);
@@ -380,5 +386,3 @@ static jfs_error_t fw_state_dir_push(jfs_fw_state_t *state, jfs_fw_dir_t **dir_g
 
     return JFS_OK;
 }
-
-
