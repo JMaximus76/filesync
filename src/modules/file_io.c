@@ -1,43 +1,75 @@
 #include "file_io.h"
+#include "error.h"
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-void jfs_fio_normalize_path(char *path_buf) {
-    size_t len = strlen(path_buf);
-    if (len > 1 && path_buf[len - 1] == '/') {
-        path_buf[len - 1] = '\0';
+jfs_error_t jfs_fio_path_init(jfs_fio_path_t *path_init, const char *path_str) {
+    size_t path_str_len = strlen(path_str);
+
+    if (path_str_len > 1 && path_str[path_str_len - 1] == '/') {
+        path_str_len -= 1;
     }
-}
+    FAIL_IF(path_str_len > PATH_MAX, JFS_ERR_PATH_LEN);
 
-jfs_error_t jfs_fio_cat_path(char *path_buf, const char *file_name) {
-    size_t file_len = strlen(file_name);
-    FAIL_IF(file_len > NAME_MAX, JFS_ERR_NAME_LEN);
+    char *new_str = malloc(path_str_len + 1);
+    FAIL_IF(new_str == NULL, JFS_ERR_RESOURCE);
+    strlcpy(new_str, path_str, path_str_len + 1);
 
-    jfs_fio_normalize_path(path_buf);
-    size_t path_len = strlen(path_buf);
-    FAIL_IF(path_len + file_len + 1 > PATH_MAX, JFS_FIO_ERR_PATH_OVERFLOW);
+    path_init->len = path_str_len;
+    path_init->str = new_str;
 
-    snprintf(path_buf + path_len, PATH_BUF - path_len, "/%s", file_name);
     return JFS_OK;
 }
 
-jfs_error_t jfs_fio_change_path(char *path_buf, size_t path_len, const char *file_name) {
-    FAIL_IF(path_len == 0, JFS_ERR_ARG);
+void jfs_fio_path_free(jfs_fio_path_t *path_free) {
+    free(path_free->str);
+    memset(path_free, 0, sizeof(*path_free));
+}
 
-    if (path_buf[path_len] == '\0') {
-        if (path_buf[path_len - 1] == '/') {
-            path_len -= 1;
-        }
-    } else if (path_buf[path_len] != '/') {
-        RETURN_ERR(JFS_ERR_ARG);
-    }
+void jfs_fio_path_transfer(jfs_fio_path_t *path_init, jfs_fio_path_t *path_free) {
+    *path_init = *path_free;
+    memset(path_free, 0, sizeof(*path_free));
+}
 
-    size_t file_len = strlen(file_name);
-    FAIL_IF(file_len > NAME_MAX, JFS_ERR_NAME_LEN);
+JFS_ERR jfs_fio_name_init(jfs_fio_name_t *name_init, const char *name_str) {
+    size_t name_str_len = strlen(name_str);
+    FAIL_IF(name_str_len > NAME_MAX, JFS_ERR_NAME_LEN);
 
-    FAIL_IF(path_len + file_len + 1 > PATH_MAX, JFS_FIO_ERR_PATH_OVERFLOW);
+    char *new_str = malloc(name_str_len + 1);
+    FAIL_IF(new_str == NULL, JFS_ERR_RESOURCE);
+    strlcpy(new_str, name_str, name_str_len + 1);
 
-    snprintf(&path_buf[path_len], PATH_BUF - path_len, "/%s", file_name);
+    name_init->len = name_str_len;
+    name_init->str = new_str;
+
+    return JFS_OK;
+}
+
+void jfs_fio_name_free(jfs_fio_name_t *name_free) {
+    free(name_free->str);
+    memset(name_free, 0, sizeof(*name_free));
+}
+
+void jfs_fio_name_transfer(jfs_fio_name_t *name_init, jfs_fio_name_t *name_free) {
+    *name_init = *name_free;
+    memset(name_free, 0, sizeof(*name_free));
+}
+
+void jfs_fio_path_buf_clear(jfs_fio_path_buf_t *buf) {
+    buf->len = 0;
+    memset(buf->data, 0, sizeof(buf->data));
+}
+
+void jfs_fio_path_buf_copy(jfs_fio_path_buf_t *buf, const jfs_fio_path_t *path) {
+    jfs_fio_path_buf_clear(buf);
+    strlcpy(buf->data, path->str, sizeof(buf->data));
+}
+
+JFS_ERR jfs_fio_path_buf_compose(jfs_fio_path_buf_t *buf, const jfs_fio_path_t *path, const jfs_fio_name_t *name) {
+    FAIL_IF(path->len + name->len + 1 > PATH_MAX, JFS_FIO_ERR_PATH_OVERFLOW);
+    jfs_fio_path_buf_clear(buf);
+    snprintf(buf->data, sizeof(buf->data), "%s/%s", path->str, name->str);
     return JFS_OK;
 }

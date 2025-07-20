@@ -10,19 +10,25 @@
 
 - Public structs must be defined using the `struct` keyword and must expose all members.
 - Struct members that are themselves structs should use the typedef form where available.
+- Struct members that are pointers to arrays but postfix `_array`.
 
 ### Double Pointer Ownership Conventions
 
-- `*_ptr` → Pre-allocated (ownership kept)
-- `*_give` → Pre-allocated (ownership lost)
-- `*_take` → Not allocated (ownership gained)
+- `*_take`: Not Already created, will be allocated. (ownership gained)
+- `*_give`: Already created, will be NULLed. (ownership kept)
+- `*_ptr`: Already created, can change ptr value. (ownership kept)
+
+### Single Pointer Allocation Conventions
+
+- `*_init`: Not already initalized, will be initalized. (memory allocated)
+- `*_free`: Already initalized, will be freed. (memory freed)
 
 ### Function Naming Conventions
 
 - `[prefix]_[struct]_create`: Allocates and returns a new struct.
-- `[prefix]_[struct]_free`: Frees a struct from `create`.
+- `[prefix]_[struct]_destroy`: Destroys a struct from `create`.
 - `[prefix]_[struct]_init`: Initializes a pre-allocated struct, may allocate members.
-- `[prefix]_[struct]_destroy`: Frees members of a struct from `init`.
+- `[prefix]_[struct]_free`: Frees members of a struct from `init`.
 - `[prefix]_[struct]_transfer`: Moves ownership of members from one `init`-struct to another.
 
 ## System Requirements

@@ -4,7 +4,7 @@ BracedInitializerIndentWidth: 4
 TabWidth: 4
 UseTab: Never
 ColumnLimit: 150
-InsertBraces: true
+InsertBraces: false
 BreakBeforeBraces: Attach
 MaxEmptyLinesToKeep: 1
 PointerAlignment: Right
@@ -17,21 +17,23 @@ SpacesInParens: Never
 AlignAfterOpenBracket: Align
 AlignArrayOfStructures: Left
 AlignConsecutiveAssignments: None
-AlignConsecutiveDeclarations: Consecutive
+AlignConsecutiveDeclarations:
+  Enabled: true 
+  AlignFunctionDeclarations: true
 AlignConsecutiveMacros: Consecutive
 AlignConsecutiveShortCaseStatements:
   Enabled: true
   AcrossEmptyLines: true
   AcrossComments: true
-AlignEscapedNewlines: Right
+AlignEscapedNewlines: LeftWithLastLine
 AlignOperands: AlignAfterOperator
 AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
-AllowShortBlocksOnASingleLine: Always
+AllowShortBlocksOnASingleLine: Empty
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortEnumsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: Empty
-AllowShortIfStatementsOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: WithoutElse
 AllowShortLoopsOnASingleLine: false
 BinPackArguments: true
 BinPackParameters: true

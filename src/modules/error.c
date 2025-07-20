@@ -1,9 +1,31 @@
 #include "error.h"
 #include <errno.h>
 
+
+static jfs_error_t err_map_lstat(int c_error);
+static jfs_error_t err_map_opendir(int c_error);
+
+
+jfs_error_t jfs_err_lstat(const char *path_str, struct stat *stat_init) {
+    if (lstat(path_str, stat_init) != 0) {
+        RETURN_ERR(err_map_lstat(errno));
+    }
+
+    return JFS_OK;
+}
+
+jfs_error_t jfs_err_opendir(DIR **dir, const char *path_str) {
+    *dir = opendir(path_str);
+    if (*dir == NULL) {
+        RETURN_ERR(err_map_opendir(errno));
+    }
+
+    return JFS_OK;
+}
+
 const char *jfs_err_to_string(jfs_error_t err) {
     switch (err) {
-#define X(name)                                                                                                                                      \
+#define X(name)              \
     case name: return #name;
         JFS_ERROR_LIST;
 #undef X
@@ -11,7 +33,7 @@ const char *jfs_err_to_string(jfs_error_t err) {
     }
 }
 
-jfs_error_t jfs_err_lstat(int c_error) {
+static jfs_error_t err_map_lstat(int c_error) {
     jfs_error_t err;
 
     switch (c_error) {
@@ -26,7 +48,7 @@ jfs_error_t jfs_err_lstat(int c_error) {
     RETURN_ERR(err);
 }
 
-jfs_error_t jfs_err_opendir(int c_error) {
+static jfs_error_t err_map_opendir(int c_error) {
     jfs_error_t err;
 
     switch (c_error) {
@@ -39,5 +61,5 @@ jfs_error_t jfs_err_opendir(int c_error) {
         default:      err = JFS_ERR_MAP; break;
     }
 
-    RETURN_ERR(err);
+    return err;
 }
