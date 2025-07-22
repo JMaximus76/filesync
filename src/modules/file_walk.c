@@ -95,7 +95,7 @@ jfs_error_t jfs_fw_state_create(jfs_fw_state_t **state_take, const jfs_fio_path_
     jfs_fio_path_t  new_path = {0};
 
     state = malloc(sizeof(*state));
-    FAIL_IF(state == NULL, JFS_ERR_RESOURCE);
+    FAIL_IF(state == NULL, JFS_ERR_SYS);
 
     err = fw_path_vector_init(&state->path_vec);
     GOTO_IF_ERR(err, cleanup);
@@ -135,7 +135,7 @@ void jfs_fw_state_destroy(jfs_fw_state_t **state_give) {
 }
 
 jfs_error_t jfs_fw_state_step(jfs_fw_state_t *state, int *done_flag) { // NOLINT(readability-function-cognitive-complexity)
-    FAIL_IF(state->path_vec.count == 0, JFS_FW_ERR_STATE);
+    FAIL_IF(state->path_vec.count == 0, JFS_ERR_FW_STATE);
 
     jfs_error_t      err;
     fw_file_vector_t file_vec = {0};
@@ -149,8 +149,7 @@ jfs_error_t jfs_fw_state_step(jfs_fw_state_t *state, int *done_flag) { // NOLINT
     err = fw_path_vector_pop(&state->path_vec, &dir_path);
     GOTO_IF_ERR(err, cleanup);
 
-    err = jfs_err_opendir(&sys_dir, dir_path.str);
-    if (err == JFS_ERR_ACCESS) err = JFS_FW_ERR_SKIP;
+    err = jfs_opendir(&sys_dir, dir_path.str);
     GOTO_IF_ERR(err, cleanup);
 
     err = fw_scan_dir(sys_dir, &file_vec);
@@ -179,7 +178,7 @@ cleanup:
 
 jfs_error_t jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_give) {
     jfs_fw_state_t *state = *state_give;
-    FAIL_IF(state->path_vec.count > 0, JFS_FW_ERR_STATE);
+    FAIL_IF(state->path_vec.count > 0, JFS_ERR_FW_STATE);
 
     size_t        new_dir_count = state->dir_vec.count;
     jfs_fw_dir_t *new_dir_array;
@@ -209,8 +208,8 @@ static jfs_error_t fw_map_dirent_type(unsigned char ent_type, jfs_fw_types_t *fw
     switch (ent_type) {
         case DT_REG:     *fw_type = JFS_FW_REG; break;
         case DT_DIR:     *fw_type = JFS_FW_DIR; break;
-        case DT_UNKNOWN: RETURN_ERR(JFS_FW_ERR_UNKNOWN);
-        default:         RETURN_ERR(JFS_FW_ERR_UNSUPPORTED);
+        case DT_UNKNOWN: RETURN_ERR(JFS_ERR_FW_UNKNOWN);
+        default:         RETURN_ERR(JFS_ERR_FW_UNSUPPORTED);
     }
 
     return JFS_OK;
@@ -248,7 +247,7 @@ static jfs_error_t fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_fre
 
 static jfs_error_t fw_path_vector_init(fw_path_vector_t *vec_init) {
     jfs_fio_path_t *new_path_array = malloc(sizeof(*new_path_array) * FW_PATH_VECTOR_DEFAULT_CAPACITY);
-    FAIL_IF(new_path_array == NULL, JFS_ERR_RESOURCE);
+    FAIL_IF(new_path_array == NULL, JFS_ERR_SYS);
 
     vec_init->path_array = new_path_array;
     vec_init->capacity = FW_PATH_VECTOR_DEFAULT_CAPACITY;
@@ -274,7 +273,7 @@ static jfs_error_t fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *pa
         const size_t new_capacity = vec->capacity * 2;
 
         jfs_fio_path_t *new_path_array = realloc(vec->path_array, sizeof(*new_path_array) * new_capacity);
-        FAIL_IF(new_path_array == NULL, JFS_ERR_RESOURCE);
+        FAIL_IF(new_path_array == NULL, JFS_ERR_SYS);
 
         vec->path_array = new_path_array;
         vec->capacity = new_capacity;
@@ -297,7 +296,7 @@ static jfs_error_t fw_path_vector_pop(fw_path_vector_t *vec, jfs_fio_path_t *pat
 
 static jfs_error_t fw_file_vector_init(fw_file_vector_t *vec_init) {
     jfs_fw_file_t *new_file_array = malloc(sizeof(*new_file_array) * FW_FILE_VECTOR_DEFAULT_CAPACITY);
-    FAIL_IF(new_file_array == NULL, JFS_ERR_RESOURCE);
+    FAIL_IF(new_file_array == NULL, JFS_ERR_SYS);
 
     vec_init->file_array = new_file_array;
     vec_init->capacity = FW_FILE_VECTOR_DEFAULT_CAPACITY;
@@ -323,7 +322,7 @@ static jfs_error_t fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *fil
         const size_t new_capacity = vec->capacity * 2;
 
         jfs_fw_file_t *new_file_array = realloc(vec->file_array, sizeof(*new_file_array) * new_capacity);
-        FAIL_IF(new_file_array == NULL, JFS_ERR_RESOURCE);
+        FAIL_IF(new_file_array == NULL, JFS_ERR_SYS);
 
         vec->file_array = new_file_array;
         vec->capacity = new_capacity;
@@ -339,7 +338,7 @@ static jfs_error_t fw_file_vector_to_array(jfs_fw_file_t **file_array_take, fw_f
     FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
 
     jfs_fw_file_t *new_file_array = realloc(vec_free->file_array, sizeof(*new_file_array) * vec_free->count);
-    FAIL_IF(new_file_array == NULL, JFS_ERR_RESOURCE);
+    FAIL_IF(new_file_array == NULL, JFS_ERR_SYS);
 
     *file_array_take = new_file_array;
     memset(vec_free, 0, sizeof(*vec_free));
@@ -349,7 +348,7 @@ static jfs_error_t fw_file_vector_to_array(jfs_fw_file_t **file_array_take, fw_f
 
 static jfs_error_t fw_dir_vector_init(fw_dir_vector_t *vec_init) {
     jfs_fw_dir_t *new_dir_array = malloc(sizeof(*new_dir_array) * FW_DIR_VECTOR_DEFAULT_CAPACITY);
-    FAIL_IF(new_dir_array == NULL, JFS_ERR_RESOURCE);
+    FAIL_IF(new_dir_array == NULL, JFS_ERR_SYS);
 
     vec_init->dir_array = new_dir_array;
     vec_init->capacity = FW_DIR_VECTOR_DEFAULT_CAPACITY;
@@ -375,7 +374,7 @@ static jfs_error_t fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_fr
         const size_t new_capacity = vec->capacity * 2;
 
         jfs_fw_dir_t *new_dir_array = realloc(vec->dir_array, sizeof(*new_dir_array) * new_capacity);
-        FAIL_IF(new_dir_array == NULL, JFS_ERR_RESOURCE);
+        FAIL_IF(new_dir_array == NULL, JFS_ERR_SYS);
 
         vec->dir_array = new_dir_array;
         vec->capacity = new_capacity;
@@ -391,7 +390,7 @@ static jfs_error_t fw_dir_vector_to_array(jfs_fw_dir_t **dir_array_take, fw_dir_
     FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
 
     jfs_fw_dir_t *new_dir_array = realloc(vec_free->dir_array, sizeof(*new_dir_array) * vec_free->count);
-    FAIL_IF(new_dir_array == NULL, JFS_ERR_RESOURCE);
+    FAIL_IF(new_dir_array == NULL, JFS_ERR_SYS);
 
     *dir_array_take = new_dir_array;
     memset(vec_free, 0, sizeof(*vec_free));
@@ -406,14 +405,14 @@ static jfs_error_t fw_scan_dir(DIR *dir, fw_file_vector_t *vec) {
     while ((ent = readdir(dir)) != NULL) {
         if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
         jfs_error_t err = fw_handle_dirent(ent, vec);
-        if (err == JFS_FW_ERR_UNSUPPORTED) {
+        if (err == JFS_ERR_FW_UNSUPPORTED) {
             JFS_RES(err);
             continue;
         }
         CHECK_ERR(err);
     }
 
-    FAIL_IF(errno != 0, JFS_ERR_BAD_FD);
+    FAIL_IF(errno != 0, JFS_ERR_SYS);
 
     return JFS_OK;
 }

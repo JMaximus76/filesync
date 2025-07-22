@@ -33,7 +33,6 @@ void timed_test_function(jfs_fw_record_t *record) {
 cleanup:
     jfs_fio_path_free(&path);
     jfs_fw_state_destroy(&state);
-    jfs_fw_record_free(record);
 }
 
 int main() {
