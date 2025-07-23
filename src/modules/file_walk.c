@@ -36,28 +36,28 @@ struct jfs_fw_state {
     fw_dir_vector_t  dir_vec;
 };
 
-static JFS_ERR fw_map_dirent_type(unsigned char ent_type, jfs_fw_types_t *fw_type);
-static JFS_ERR fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent);
-static JFS_ERR fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_fio_path_t *path_free);
+static jfs_fw_types_t fw_map_dirent_type(unsigned char ent_type, jfs_err_t *err);
+static void fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent, jfs_err_t *err);
+static void fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_fio_path_t *path_free, jfs_err_t *err);
 
-static JFS_ERR fw_path_vector_init(fw_path_vector_t *vec_init);
-static void    fw_path_vector_free(fw_path_vector_t *vec_free);
-static JFS_ERR fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *path_free);
-static JFS_ERR fw_path_vector_pop(fw_path_vector_t *vec, jfs_fio_path_t *path_init);
+static void fw_path_vector_init(fw_path_vector_t *vec_init, jfs_err_t *err);
+static void fw_path_vector_free(fw_path_vector_t *vec_free);
+static void fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *path_free, jfs_err_t *err);
+static void fw_path_vector_pop(fw_path_vector_t *vec, jfs_fio_path_t *path_init, jfs_err_t *err);
 
-static JFS_ERR fw_file_vector_init(fw_file_vector_t *vec_init);
-static void    fw_file_vector_free(fw_file_vector_t *vec_free);
-static JFS_ERR fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *file_free);
-static JFS_ERR fw_file_vector_to_array(jfs_fw_file_t **file_array_take, fw_file_vector_t *vec_free);
+static void           fw_file_vector_init(fw_file_vector_t *vec_init, jfs_err_t *err);
+static void           fw_file_vector_free(fw_file_vector_t *vec_free);
+static void           fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *file_free, jfs_err_t *err);
+static jfs_fw_file_t *fw_file_vector_to_array(fw_file_vector_t *vec_free, jfs_err_t *err) WUR;
 
-static JFS_ERR fw_dir_vector_init(fw_dir_vector_t *vec_init);
-static void    fw_dir_vector_free(fw_dir_vector_t *vec_free);
-static JFS_ERR fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_free);
-static JFS_ERR fw_dir_vector_to_array(jfs_fw_dir_t **dir_array_take, fw_dir_vector_t *vec_free);
+static void          fw_dir_vector_init(fw_dir_vector_t *vec_init, jfs_err_t *err);
+static void          fw_dir_vector_free(fw_dir_vector_t *vec_free);
+static void          fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_free, jfs_err_t *err);
+static jfs_fw_dir_t *fw_dir_vector_to_array(fw_dir_vector_t *vec_free, jfs_err_t *err) WUR;
 
-static JFS_ERR fw_scan_dir(DIR *dir, fw_file_vector_t *vec);
-static JFS_ERR fw_handle_dirent(const struct dirent *ent, fw_file_vector_t *vec);
-static JFS_ERR fw_push_dir_paths(fw_path_vector_t *path_vec, fw_file_vector_t *file_vec, const jfs_fio_path_t *dir_path);
+static void fw_scan_dir(DIR *dir, fw_file_vector_t *vec, jfs_err_t *err);
+static void fw_handle_dirent(const struct dirent *ent, fw_file_vector_t *vec, jfs_err_t *err);
+static void fw_push_dir_paths(fw_path_vector_t *path_vec, fw_file_vector_t *file_vec, const jfs_fio_path_t *dir_path, jfs_err_t *err);
 
 void jfs_fw_file_free(jfs_fw_file_t *file_free) {
     jfs_fio_name_free(&file_free->name);
@@ -88,30 +88,26 @@ void jfs_fw_dir_transfer(jfs_fw_dir_t *dir_init, jfs_fw_dir_t *dir_free) {
     memset(dir_free, 0, sizeof(*dir_free));
 }
 
-jfs_error_t jfs_fw_state_create(jfs_fw_state_t **state_take, const jfs_fio_path_t *start_path) {
-    jfs_error_t err;
-
+jfs_fw_state_t *jfs_fw_state_create(const jfs_fio_path_t *start_path, jfs_err_t *err) {
     jfs_fw_state_t *state = NULL;
     jfs_fio_path_t  new_path = {0};
 
-    state = malloc(sizeof(*state));
-    FAIL_IF(state == NULL, JFS_ERR_SYS);
+    state = jfs_malloc(sizeof(*state), err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_path_vector_init(&state->path_vec);
-    GOTO_IF_ERR(err, cleanup);
+    fw_path_vector_init(&state->path_vec, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_dir_vector_init(&state->dir_vec);
-    GOTO_IF_ERR(err, cleanup);
+    fw_dir_vector_init(&state->dir_vec, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = jfs_fio_path_init(&new_path, start_path->str);
-    GOTO_IF_ERR(err, cleanup);
+    jfs_fio_path_init(&new_path, start_path->str, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_path_vector_push(&state->path_vec, &new_path);
-    GOTO_IF_ERR(err, cleanup);
+    fw_path_vector_push(&state->path_vec, &new_path, err);
+    GOTO_IF_ERR(cleanup);
 
-    *state_take = state;
-
-    return JFS_OK;
+    return state;
 cleanup:
     if (state != NULL) {
         fw_dir_vector_free(&state->dir_vec);
@@ -120,7 +116,7 @@ cleanup:
     }
 
     jfs_fio_path_free(&new_path);
-    RETURN_ERR(err);
+    RETURN_NULL_ERR;
 }
 
 void jfs_fw_state_destroy(jfs_fw_state_t **state_give) {
@@ -134,62 +130,60 @@ void jfs_fw_state_destroy(jfs_fw_state_t **state_give) {
     *state_give = NULL;
 }
 
-jfs_error_t jfs_fw_state_step(jfs_fw_state_t *state, int *done_flag) { // NOLINT(readability-function-cognitive-complexity)
-    FAIL_IF(state->path_vec.count == 0, JFS_ERR_FW_STATE);
 
-    jfs_error_t      err;
+int jfs_fw_state_step(jfs_fw_state_t *state, jfs_err_t *err) { // NOLINT(readability-function-cognitive-complexity)
+    if (state->path_vec.count == 0) return 1;
+
     fw_file_vector_t file_vec = {0};
     jfs_fio_path_t   dir_path = {0};
     jfs_fw_dir_t     dir = {0};
     DIR             *sys_dir = NULL;
 
-    err = fw_file_vector_init(&file_vec);
-    GOTO_IF_ERR(err, cleanup);
+    fw_file_vector_init(&file_vec, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_path_vector_pop(&state->path_vec, &dir_path);
-    GOTO_IF_ERR(err, cleanup);
+    fw_path_vector_pop(&state->path_vec, &dir_path, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = jfs_opendir(&sys_dir, dir_path.str);
-    GOTO_IF_ERR(err, cleanup);
+    sys_dir = jfs_opendir(dir_path.str, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_scan_dir(sys_dir, &file_vec);
-    GOTO_IF_ERR(err, cleanup);
+    fw_scan_dir(sys_dir, &file_vec, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_push_dir_paths(&state->path_vec, &file_vec, &dir_path);
-    GOTO_IF_ERR(err, cleanup);
+    fw_push_dir_paths(&state->path_vec, &file_vec, &dir_path, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_dir_init(&dir, &file_vec, &dir_path);
-    GOTO_IF_ERR(err, cleanup);
+    fw_dir_init(&dir, &file_vec, &dir_path, err);
+    GOTO_IF_ERR(cleanup);
 
-    err = fw_dir_vector_push(&state->dir_vec, &dir);
-    GOTO_IF_ERR(err, cleanup);
+    fw_dir_vector_push(&state->dir_vec, &dir, err);
+    GOTO_IF_ERR(cleanup);
 
-    *done_flag = state->path_vec.count == 0;
     closedir(sys_dir);
+    return state->path_vec.count > 0;
 
-    return JFS_OK;
 cleanup:
     if (sys_dir != NULL) closedir(sys_dir);
     fw_file_vector_free(&file_vec);
     jfs_fio_path_free(&dir_path);
     jfs_fw_dir_free(&dir);
-    RETURN_ERR(err);
+    REMAP_ERR(JFS_ERR_ACCESS, JFS_ERR_FW_SKIP);
+    REMAP_ERR(JFS_ERR_INVAL_PATH, JFS_ERR_FW_FAIL);
+    RETURN_VAL_ERR(state->path_vec.count == 0);
 }
 
-jfs_error_t jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_give) {
+void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_give, jfs_err_t *err) {
     jfs_fw_state_t *state = *state_give;
-    FAIL_IF(state->path_vec.count > 0, JFS_ERR_FW_STATE);
+    VOID_FAIL_IF(state->path_vec.count > 0, JFS_ERR_FW_STATE);
 
     size_t        new_dir_count = state->dir_vec.count;
-    jfs_fw_dir_t *new_dir_array;
-
-    CHECK_ERR(fw_dir_vector_to_array(&new_dir_array, &state->dir_vec));
+    jfs_fw_dir_t *new_dir_array = fw_dir_vector_to_array(&state->dir_vec, err);
+    CHECK_VOID_ERR;
     jfs_fw_state_destroy(state_give);
 
     record_init->dir_array = new_dir_array;
     record_init->dir_count = new_dir_count;
-
-    return JFS_OK;
 }
 
 void jfs_fw_record_free(jfs_fw_record_t *record_free) {
@@ -204,36 +198,36 @@ void jfs_fw_record_free(jfs_fw_record_t *record_free) {
     memset(record_free, 0, sizeof(*record_free));
 }
 
-static jfs_error_t fw_map_dirent_type(unsigned char ent_type, jfs_fw_types_t *fw_type) {
+static jfs_fw_types_t fw_map_dirent_type(unsigned char ent_type, jfs_err_t *err) {
     switch (ent_type) {
-        case DT_REG:     *fw_type = JFS_FW_REG; break;
-        case DT_DIR:     *fw_type = JFS_FW_DIR; break;
-        case DT_UNKNOWN: RETURN_ERR(JFS_ERR_FW_UNKNOWN);
-        default:         RETURN_ERR(JFS_ERR_FW_UNSUPPORTED);
+        case DT_REG:     return JFS_FW_REG;
+        case DT_DIR:     return JFS_FW_DIR;
+        case DT_UNKNOWN: *err = JFS_ERR_FW_UNKNOWN; RETURN_VAL_ERR(0);
+        default:         *err = JFS_ERR_FW_UNSUPPORTED; RETURN_VAL_ERR(0);
     }
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent) {
-    jfs_fw_types_t new_type;
+static void fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent, jfs_err_t *err) {
+    jfs_fw_types_t new_type = 0;
     jfs_fio_name_t new_name = {0};
-    CHECK_ERR(fw_map_dirent_type(ent->d_type, &new_type));
-    CHECK_ERR(jfs_fio_name_init(&new_name, ent->d_name));
+
+    new_type = fw_map_dirent_type(ent->d_type, err);
+    CHECK_VOID_ERR;
+    jfs_fio_name_init(&new_name, ent->d_name, err);
+    CHECK_VOID_ERR;
 
     jfs_fio_name_transfer(&file_init->name, &new_name);
     file_init->inode = ent->d_ino;
     file_init->type = new_type;
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_fio_path_t *path_free) {
-    jfs_fw_file_t *new_files = NULL;
+static void fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_fio_path_t *path_free, jfs_err_t *err) {
     size_t         new_count = vec_free->count;
+    jfs_fw_file_t *new_files = NULL;
 
     if (vec_free->count > 0) {
-        CHECK_ERR(fw_file_vector_to_array(&new_files, vec_free));
+        new_files = fw_file_vector_to_array(vec_free, err);
+        CHECK_VOID_ERR;
     } else {
         fw_file_vector_free(vec_free);
     }
@@ -241,19 +235,15 @@ static jfs_error_t fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_fre
     dir_init->file_count = new_count;
     dir_init->files = new_files;
     jfs_fio_path_transfer(&dir_init->path, path_free);
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_path_vector_init(fw_path_vector_t *vec_init) {
-    jfs_fio_path_t *new_path_array = malloc(sizeof(*new_path_array) * FW_PATH_VECTOR_DEFAULT_CAPACITY);
-    FAIL_IF(new_path_array == NULL, JFS_ERR_SYS);
+static void fw_path_vector_init(fw_path_vector_t *vec_init, jfs_err_t *err) {
+    jfs_fio_path_t *new_path_array = jfs_malloc(sizeof(*new_path_array) * FW_PATH_VECTOR_DEFAULT_CAPACITY, err);
+    CHECK_VOID_ERR;
 
     vec_init->path_array = new_path_array;
     vec_init->capacity = FW_PATH_VECTOR_DEFAULT_CAPACITY;
     vec_init->count = 0;
-
-    return JFS_OK;
 }
 
 static void fw_path_vector_free(fw_path_vector_t *vec_free) {
@@ -268,12 +258,12 @@ static void fw_path_vector_free(fw_path_vector_t *vec_free) {
     memset(vec_free, 0, sizeof(*vec_free));
 }
 
-static jfs_error_t fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *path_free) {
+static void fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *path_free, jfs_err_t *err) {
     if (vec->count >= vec->capacity) {
         const size_t new_capacity = vec->capacity * 2;
 
-        jfs_fio_path_t *new_path_array = realloc(vec->path_array, sizeof(*new_path_array) * new_capacity);
-        FAIL_IF(new_path_array == NULL, JFS_ERR_SYS);
+        jfs_fio_path_t *new_path_array = jfs_realloc(vec->path_array, sizeof(*new_path_array) * new_capacity, err);
+        CHECK_VOID_ERR;
 
         vec->path_array = new_path_array;
         vec->capacity = new_capacity;
@@ -281,28 +271,22 @@ static jfs_error_t fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *pa
 
     jfs_fio_path_transfer(&vec->path_array[vec->count], path_free);
     vec->count += 1;
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_path_vector_pop(fw_path_vector_t *vec, jfs_fio_path_t *path_init) {
-    FAIL_IF(vec->count == 0, JFS_ERR_EMPTY);
+static void fw_path_vector_pop(fw_path_vector_t *vec, jfs_fio_path_t *path_init, jfs_err_t *err) {
+    VOID_FAIL_IF(vec->count == 0, JFS_ERR_EMPTY);
 
     vec->count -= 1;
     jfs_fio_path_transfer(path_init, &vec->path_array[vec->count]);
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_file_vector_init(fw_file_vector_t *vec_init) {
-    jfs_fw_file_t *new_file_array = malloc(sizeof(*new_file_array) * FW_FILE_VECTOR_DEFAULT_CAPACITY);
-    FAIL_IF(new_file_array == NULL, JFS_ERR_SYS);
+static void fw_file_vector_init(fw_file_vector_t *vec_init, jfs_err_t *err) {
+    jfs_fw_file_t *new_file_array = jfs_malloc(sizeof(*new_file_array) * FW_FILE_VECTOR_DEFAULT_CAPACITY, err);
+    CHECK_VOID_ERR;
 
     vec_init->file_array = new_file_array;
     vec_init->capacity = FW_FILE_VECTOR_DEFAULT_CAPACITY;
     vec_init->count = 0;
-
-    return JFS_OK;
 }
 
 static void fw_file_vector_free(fw_file_vector_t *vec_free) {
@@ -317,12 +301,12 @@ static void fw_file_vector_free(fw_file_vector_t *vec_free) {
     memset(vec_free, 0, sizeof(*vec_free));
 }
 
-static jfs_error_t fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *file_free) {
+static void fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *file_free, jfs_err_t *err) {
     if (vec->count >= vec->capacity) {
         const size_t new_capacity = vec->capacity * 2;
 
-        jfs_fw_file_t *new_file_array = realloc(vec->file_array, sizeof(*new_file_array) * new_capacity);
-        FAIL_IF(new_file_array == NULL, JFS_ERR_SYS);
+        jfs_fw_file_t *new_file_array = jfs_realloc(vec->file_array, sizeof(*new_file_array) * new_capacity, err);
+        CHECK_VOID_ERR;
 
         vec->file_array = new_file_array;
         vec->capacity = new_capacity;
@@ -330,31 +314,25 @@ static jfs_error_t fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *fil
 
     jfs_fw_file_transfer(&vec->file_array[vec->count], file_free);
     vec->count += 1;
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_file_vector_to_array(jfs_fw_file_t **file_array_take, fw_file_vector_t *vec_free) {
-    FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
+static jfs_fw_file_t *fw_file_vector_to_array(fw_file_vector_t *vec_free, jfs_err_t *err) {
+    NULL_FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
 
-    jfs_fw_file_t *new_file_array = realloc(vec_free->file_array, sizeof(*new_file_array) * vec_free->count);
-    FAIL_IF(new_file_array == NULL, JFS_ERR_SYS);
+    jfs_fw_file_t *file_array = jfs_realloc(vec_free->file_array, sizeof(*file_array) * vec_free->count, err);
+    CHECK_NULL_ERR;
 
-    *file_array_take = new_file_array;
     memset(vec_free, 0, sizeof(*vec_free));
-
-    return JFS_OK;
+    return file_array;
 }
 
-static jfs_error_t fw_dir_vector_init(fw_dir_vector_t *vec_init) {
-    jfs_fw_dir_t *new_dir_array = malloc(sizeof(*new_dir_array) * FW_DIR_VECTOR_DEFAULT_CAPACITY);
-    FAIL_IF(new_dir_array == NULL, JFS_ERR_SYS);
+static void fw_dir_vector_init(fw_dir_vector_t *vec_init, jfs_err_t *err) {
+    jfs_fw_dir_t *new_dir_array = jfs_malloc(sizeof(*new_dir_array) * FW_DIR_VECTOR_DEFAULT_CAPACITY, err);
+    CHECK_VOID_ERR;
 
     vec_init->dir_array = new_dir_array;
     vec_init->capacity = FW_DIR_VECTOR_DEFAULT_CAPACITY;
     vec_init->count = 0;
-
-    return JFS_OK;
 }
 
 static void fw_dir_vector_free(fw_dir_vector_t *vec_free) {
@@ -369,12 +347,12 @@ static void fw_dir_vector_free(fw_dir_vector_t *vec_free) {
     memset(vec_free, 0, sizeof(*vec_free));
 }
 
-static jfs_error_t fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_free) {
+static void fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_free, jfs_err_t *err) {
     if (vec->count >= vec->capacity) {
         const size_t new_capacity = vec->capacity * 2;
 
-        jfs_fw_dir_t *new_dir_array = realloc(vec->dir_array, sizeof(*new_dir_array) * new_capacity);
-        FAIL_IF(new_dir_array == NULL, JFS_ERR_SYS);
+        jfs_fw_dir_t *new_dir_array = jfs_realloc(vec->dir_array, sizeof(*new_dir_array) * new_capacity, err);
+        CHECK_VOID_ERR;
 
         vec->dir_array = new_dir_array;
         vec->capacity = new_capacity;
@@ -382,66 +360,67 @@ static jfs_error_t fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_fr
 
     jfs_fw_dir_transfer(&vec->dir_array[vec->count], dir_free);
     vec->count += 1;
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_dir_vector_to_array(jfs_fw_dir_t **dir_array_take, fw_dir_vector_t *vec_free) {
-    FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
+static jfs_fw_dir_t *fw_dir_vector_to_array(fw_dir_vector_t *vec_free, jfs_err_t *err) {
+    NULL_FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
 
-    jfs_fw_dir_t *new_dir_array = realloc(vec_free->dir_array, sizeof(*new_dir_array) * vec_free->count);
-    FAIL_IF(new_dir_array == NULL, JFS_ERR_SYS);
+    jfs_fw_dir_t *dir_array = jfs_realloc(vec_free->dir_array, sizeof(*dir_array) * vec_free->count, err);
+    CHECK_NULL_ERR;
 
-    *dir_array_take = new_dir_array;
     memset(vec_free, 0, sizeof(*vec_free));
-
-    return JFS_OK;
+    return dir_array;
 }
 
-static jfs_error_t fw_scan_dir(DIR *dir, fw_file_vector_t *vec) {
+static void fw_scan_dir(DIR *dir, fw_file_vector_t *vec, jfs_err_t *err) {
     struct dirent *ent = NULL;
 
     errno = 0;
     while ((ent = readdir(dir)) != NULL) {
         if (strcmp(ent->d_name, ".") == 0 || strcmp(ent->d_name, "..") == 0) continue;
-        jfs_error_t err = fw_handle_dirent(ent, vec);
-        if (err == JFS_ERR_FW_UNSUPPORTED) {
-            JFS_RES(err);
+        fw_handle_dirent(ent, vec, err);
+        if (*err == JFS_ERR_FW_UNSUPPORTED) {
+            RES_ERR;
             continue;
         }
-        CHECK_ERR(err);
+        CHECK_VOID_ERR;
     }
 
-    FAIL_IF(errno != 0, JFS_ERR_SYS);
-
-    return JFS_OK;
+    VOID_FAIL_IF(errno != 0, JFS_ERR_SYS);
 }
 
-static jfs_error_t fw_handle_dirent(const struct dirent *ent, fw_file_vector_t *vec) {
+static void fw_handle_dirent(const struct dirent *ent, fw_file_vector_t *vec, jfs_err_t *err) {
     jfs_fw_file_t file = {0};
-    CHECK_ERR(fw_file_init(&file, ent));
+    fw_file_init(&file, ent, err);
+    CHECK_VOID_ERR;
 
-    jfs_error_t err = fw_file_vector_push(vec, &file);
-    if (err != JFS_OK) {
+    fw_file_vector_push(vec, &file, err);
+    if (*err != JFS_OK) {
         jfs_fw_file_free(&file);
-        RETURN_ERR(err);
+        RETURN_VOID_ERR;
     }
-
-    return JFS_OK;
 }
 
-static jfs_error_t fw_push_dir_paths(fw_path_vector_t *path_vec, fw_file_vector_t *file_vec, const jfs_fio_path_t *dir_path) {
+static void fw_push_dir_paths(fw_path_vector_t *path_vec, fw_file_vector_t *file_vec, const jfs_fio_path_t *dir_path, jfs_err_t *err) {
     jfs_fio_path_t     push_path = {0};
     jfs_fio_path_buf_t buf = {0};
 
     for (size_t i = 0; i < file_vec->count; i++) {
         if (file_vec->file_array[i].type == JFS_FW_REG) continue;
-        CHECK_ERR(jfs_fio_path_buf_compose(&buf, dir_path, &(file_vec->file_array[i].name)));
-        CHECK_ERR(jfs_fio_path_init(&push_path, buf.data));
-        if (fw_path_vector_push(path_vec, &push_path) != JFS_OK) {
+
+        jfs_fio_path_buf_compose(&buf, dir_path, &(file_vec->file_array[i].name), err);
+        if (*err == JFS_ERR_FIO_PATH_OVERFLOW) {
+            RES_ERR;
+            continue;
+        }
+
+        jfs_fio_path_init(&push_path, buf.data, err);
+        CHECK_VOID_ERR;
+
+        fw_path_vector_push(path_vec, &push_path, err);
+        if (*err != JFS_OK) {
             jfs_fio_path_free(&push_path);
+            RETURN_VOID_ERR;
         }
     }
-
-    return JFS_OK;
 }

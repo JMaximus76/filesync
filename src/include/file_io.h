@@ -24,16 +24,16 @@ struct jfs_fio_name {
     char  *str;
 };
 
-JFS_ERR jfs_fio_path_init(jfs_fio_path_t *path_init, const char *path_str);
-void    jfs_fio_path_free(jfs_fio_path_t *path_free);
-void    jfs_fio_path_transfer(jfs_fio_path_t *path_init, jfs_fio_path_t *path_free);
+void jfs_fio_path_init(jfs_fio_path_t *path_init, const char *path_str, jfs_err_t *err);
+void jfs_fio_path_free(jfs_fio_path_t *path_free);
+void jfs_fio_path_transfer(jfs_fio_path_t *path_init, jfs_fio_path_t *path_free);
 
-JFS_ERR jfs_fio_name_init(jfs_fio_name_t *name_init, const char *name_str);
-void    jfs_fio_name_free(jfs_fio_name_t *name_free);
-void    jfs_fio_name_transfer(jfs_fio_name_t *name_init, jfs_fio_name_t *name_free);
+void jfs_fio_name_init(jfs_fio_name_t *name_init, const char *name_str, jfs_err_t *err);
+void jfs_fio_name_free(jfs_fio_name_t *name_free);
+void jfs_fio_name_transfer(jfs_fio_name_t *name_init, jfs_fio_name_t *name_free);
 
-void    jfs_fio_path_buf_clear(jfs_fio_path_buf_t *buf);
-void    jfs_fio_path_buf_copy(jfs_fio_path_buf_t *buf, const jfs_fio_path_t *path);
-JFS_ERR jfs_fio_path_buf_compose(jfs_fio_path_buf_t *buf, const jfs_fio_path_t *path, const jfs_fio_name_t *name);
+void jfs_fio_path_buf_clear(jfs_fio_path_buf_t *buf);
+void jfs_fio_path_buf_copy(jfs_fio_path_buf_t *buf, const jfs_fio_path_t *path, jfs_err_t *err);
+void jfs_fio_path_buf_compose(jfs_fio_path_buf_t *buf, const jfs_fio_path_t *path, const jfs_fio_name_t *name, jfs_err_t *err);
 
 #endif

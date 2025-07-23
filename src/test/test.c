@@ -5,34 +5,32 @@
 #include <stdio.h>
 #include <time.h>
 
-void timed_test_function(jfs_fw_record_t *record) {
-    jfs_error_t     err;
+void timed_test_function(jfs_fw_record_t *record, jfs_err_t *err) {
     jfs_fio_path_t  path = {0};
     jfs_fw_state_t *state = NULL;
-    int             done_flag = 0;
 
-    err = jfs_fio_path_init(&path, "/home/jacob/code/filesync/");
-    GOTO_IF_ERR(err, cleanup);
+    jfs_fio_path_init(&path, "/home/jacob/code/filesync/", err);
+    GOTO_IF_ERR(cleanup);
 
-    err = jfs_fw_state_create(&state, &path);
-    GOTO_IF_ERR(err, cleanup);
+    state = jfs_fw_state_create(&path, err);
+    GOTO_IF_ERR(cleanup);
 
-    while (!done_flag) {
-        err = jfs_fw_state_step(state, &done_flag);
-        if (err == JFS_FW_ERR_SKIP) {
-            JFS_RES(err);
+    while (jfs_fw_state_step(state, err)) {
+        if (*err == JFS_ERR_FW_SKIP) {
+            RES_ERR;
             continue;
         }
-        GOTO_IF_ERR(err, cleanup);
+        GOTO_IF_ERR(cleanup);
     }
 
-    err = jfs_fw_record_init(record, &state);
-    GOTO_IF_ERR(err, cleanup);
+    jfs_fw_record_init(record, &state, err);
+    GOTO_IF_ERR(cleanup);
 
     return;
 cleanup:
     jfs_fio_path_free(&path);
     jfs_fw_state_destroy(&state);
+    RETURN_VOID_ERR;
 }
 
 int main() {
@@ -40,9 +38,10 @@ int main() {
     struct timespec end;
 
     jfs_fw_record_t record = {0};
+    jfs_err_t       err = JFS_OK;
 
     clock_gettime(CLOCK_MONOTONIC, &start);
-    timed_test_function(&record);
+    timed_test_function(&record, &err);
     clock_gettime(CLOCK_MONOTONIC, &end);
 
     size_t total_files = 0;
