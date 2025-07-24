@@ -1,92 +1,86 @@
+#include "error.h"
 #include "net_socket.h"
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
-int main() {
-    struct net_socket *client = net_socket_create();
-    if (client == NULL) {
-        perror("failed to create socket");
-        exit(EXIT_FAILURE);
-    }
+#define SERV_PORT 20727
 
-    if (net_socket_set_host(client, 30727, "jmax-server.local") == -1) {
-        perror("failed to address");
-        exit(EXIT_FAILURE);
-    }
+struct test_data {
+    int  a;
+    int  b;
+    int  c;
+    char str[100]; // NOLINT
+};
 
-    if (net_socket_connect(client) == -1) {
-        perror("failed to connect");
-        exit(EXIT_FAILURE);
-    }
+void print_test_data(const struct test_data *data) {
+    printf("test_data {\n");
+    printf("  a = %d\n", data->a);
+    printf("  b = %d\n", data->b);
+    printf("  c = %d\n", data->c);
+    printf("  str = \"%s\"\n", data->str);
+    printf("}\n");
+}
 
+void run(jfs_err_t *err) { //NOLINT
+    jfs_ns_socket_t *client = jfs_ns_socket_create(err);
+    GOTO_IF_ERR(cleanup);
+
+    jfs_ns_socket_open(client, err);
+    GOTO_IF_ERR(cleanup);
+
+    jfs_ns_socket_set_hostname(client, SERV_PORT, "jmax-server.local", err);
+    GOTO_IF_ERR(cleanup);
+
+    jfs_ns_socket_connect(client, err);
+    GOTO_IF_ERR(cleanup);
     printf("connected\n");
 
-    int fd = open("pic.jpg", O_RDONLY);
-    if (fd == -1) {
-        perror("failed to open file");
-        net_socket_destroy(&client);
-        exit(EXIT_FAILURE);
-    }
+    struct test_data send_data = {
+        .a = 727, // NOLINT
+        .b = 76,  // NOLINT
+        .c = 2,
+        .str = "hi from over there\n",
+    };
 
-    struct stat sb;
-    if (fstat(fd, &sb) == -1) {
-        perror("failed to get stat");
-        net_socket_destroy(&client);
-    }
+    jfs_ns_socket_send(client, &send_data, sizeof(send_data), 0, err);
+    GOTO_IF_ERR(cleanup);
 
-    const size_t size_of_file = sb.st_size;
-    const size_t size_to_send = sizeof(size_of_file);
+    struct test_data recv_data = {0};
+    jfs_ns_socket_recv(client, &recv_data, sizeof(recv_data), err);
+    GOTO_IF_ERR(cleanup);
+    print_test_data(&recv_data);
 
-    printf("size of file: %zu\n", size_of_file);
+    jfs_ns_socket_shutdown(client, err);
+    GOTO_IF_ERR(cleanup);
 
-    ssize_t size_sent = net_socket_send(client, &size_of_file, size_to_send, 0);
-    if (size_sent == -1) {
-        perror("failed to send");
-        exit(EXIT_FAILURE);
-    }
-    if ((size_t) size_sent < size_to_send) {
-        printf("partial send then error: %zu\n", size_sent);
-        perror("failed to send");
-        exit(EXIT_FAILURE);
-    }
-
-    printf("starting send\n");
-    size_t total_sent = 0;
-    int    file_status = net_socket_file_send(client, fd, sb.st_size, &total_sent);
-    if (file_status < 0) {
-        if (file_status == -1) {
-            perror("failed to read");
-        }
-        if (file_status == -2) {
-            perror("failed to send");
-        }
-        if (file_status == -3) {
-            perror("file size to small");
-        }
-        net_socket_destroy(&client);
-    }
-
-    net_socket_shutdown(client);
-    char recv_buf[4000];
     while (1) {
-        ssize_t r = net_socket_recv(client, recv_buf, 4000);
-
-        if (r == 0) {
+        jfs_ns_socket_recv(client, &recv_data, sizeof(recv_data), err);
+        if (*err == JFS_ERR_NS_CONNECTION_CLOSE) {
             printf("safe shutdown\n");
             break;
-        }
+        } 
 
-        if (r == -1) {
-            perror("shutdown recv fail");
-            net_socket_destroy(&client);
-            exit(EXIT_FAILURE);
+        if (*err != JFS_OK) {
+            printf("unsafe shutdown\n");
+            GOTO_IF_ERR(cleanup);
         }
+        print_test_data(&recv_data);
     }
 
-    net_socket_destroy(&client);
+    jfs_ns_socket_close(client, err);
+    if (*err != JFS_OK) RES_ERR;
+    jfs_ns_socket_destroy(&client);
+
+    return;
+cleanup:
+    jfs_ns_socket_destroy(&client);
+    VOID_RETURN_ERR;
+}
+
+int main() {
+    jfs_err_t err;
+    run(&err);
     return 0;
 }

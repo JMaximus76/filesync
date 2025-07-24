@@ -14,7 +14,7 @@ void jfs_fio_path_init(jfs_fio_path_t *path_init, const char *path_str, jfs_err_
     VOID_FAIL_IF(path_str_len > PATH_MAX, JFS_ERR_FIO_PATH_LEN);
 
     char *new_str = jfs_malloc(path_str_len + 1, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     strlcpy(new_str, path_str, path_str_len + 1);
     path_init->len = path_str_len;
@@ -36,7 +36,7 @@ void jfs_fio_name_init(jfs_fio_name_t *name_init, const char *name_str, jfs_err_
     VOID_FAIL_IF(name_str_len > NAME_MAX, JFS_ERR_FIO_NAME_LEN);
 
     char *new_str = jfs_malloc(name_str_len + 1, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     strlcpy(new_str, name_str, name_str_len + 1);
     name_init->len = name_str_len;

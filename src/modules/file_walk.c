@@ -116,7 +116,7 @@ cleanup:
     }
 
     jfs_fio_path_free(&new_path);
-    RETURN_NULL_ERR;
+    NULL_RETURN_ERR;
 }
 
 void jfs_fw_state_destroy(jfs_fw_state_t **state_give) {
@@ -170,7 +170,7 @@ cleanup:
     jfs_fw_dir_free(&dir);
     REMAP_ERR(JFS_ERR_ACCESS, JFS_ERR_FW_SKIP);
     REMAP_ERR(JFS_ERR_INVAL_PATH, JFS_ERR_FW_FAIL);
-    RETURN_VAL_ERR(state->path_vec.count == 0);
+    VAL_RETURN_ERR(state->path_vec.count == 0);
 }
 
 void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_give, jfs_err_t *err) {
@@ -179,7 +179,7 @@ void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_giv
 
     size_t        new_dir_count = state->dir_vec.count;
     jfs_fw_dir_t *new_dir_array = fw_dir_vector_to_array(&state->dir_vec, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
     jfs_fw_state_destroy(state_give);
 
     record_init->dir_array = new_dir_array;
@@ -202,8 +202,8 @@ static jfs_fw_types_t fw_map_dirent_type(unsigned char ent_type, jfs_err_t *err)
     switch (ent_type) {
         case DT_REG:     return JFS_FW_REG;
         case DT_DIR:     return JFS_FW_DIR;
-        case DT_UNKNOWN: *err = JFS_ERR_FW_UNKNOWN; RETURN_VAL_ERR(0);
-        default:         *err = JFS_ERR_FW_UNSUPPORTED; RETURN_VAL_ERR(0);
+        case DT_UNKNOWN: *err = JFS_ERR_FW_UNKNOWN; VAL_RETURN_ERR(0);
+        default:         *err = JFS_ERR_FW_UNSUPPORTED; VAL_RETURN_ERR(0);
     }
 }
 
@@ -212,9 +212,9 @@ static void fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent, jfs
     jfs_fio_name_t new_name = {0};
 
     new_type = fw_map_dirent_type(ent->d_type, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
     jfs_fio_name_init(&new_name, ent->d_name, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     jfs_fio_name_transfer(&file_init->name, &new_name);
     file_init->inode = ent->d_ino;
@@ -227,7 +227,7 @@ static void fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_
 
     if (vec_free->count > 0) {
         new_files = fw_file_vector_to_array(vec_free, err);
-        CHECK_VOID_ERR;
+        VOID_CHECK_ERR;
     } else {
         fw_file_vector_free(vec_free);
     }
@@ -239,7 +239,7 @@ static void fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_
 
 static void fw_path_vector_init(fw_path_vector_t *vec_init, jfs_err_t *err) {
     jfs_fio_path_t *new_path_array = jfs_malloc(sizeof(*new_path_array) * FW_PATH_VECTOR_DEFAULT_CAPACITY, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     vec_init->path_array = new_path_array;
     vec_init->capacity = FW_PATH_VECTOR_DEFAULT_CAPACITY;
@@ -263,7 +263,7 @@ static void fw_path_vector_push(fw_path_vector_t *vec, jfs_fio_path_t *path_free
         const size_t new_capacity = vec->capacity * 2;
 
         jfs_fio_path_t *new_path_array = jfs_realloc(vec->path_array, sizeof(*new_path_array) * new_capacity, err);
-        CHECK_VOID_ERR;
+        VOID_CHECK_ERR;
 
         vec->path_array = new_path_array;
         vec->capacity = new_capacity;
@@ -282,7 +282,7 @@ static void fw_path_vector_pop(fw_path_vector_t *vec, jfs_fio_path_t *path_init,
 
 static void fw_file_vector_init(fw_file_vector_t *vec_init, jfs_err_t *err) {
     jfs_fw_file_t *new_file_array = jfs_malloc(sizeof(*new_file_array) * FW_FILE_VECTOR_DEFAULT_CAPACITY, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     vec_init->file_array = new_file_array;
     vec_init->capacity = FW_FILE_VECTOR_DEFAULT_CAPACITY;
@@ -306,7 +306,7 @@ static void fw_file_vector_push(fw_file_vector_t *vec, jfs_fw_file_t *file_free,
         const size_t new_capacity = vec->capacity * 2;
 
         jfs_fw_file_t *new_file_array = jfs_realloc(vec->file_array, sizeof(*new_file_array) * new_capacity, err);
-        CHECK_VOID_ERR;
+        VOID_CHECK_ERR;
 
         vec->file_array = new_file_array;
         vec->capacity = new_capacity;
@@ -320,7 +320,7 @@ static jfs_fw_file_t *fw_file_vector_to_array(fw_file_vector_t *vec_free, jfs_er
     NULL_FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
 
     jfs_fw_file_t *file_array = jfs_realloc(vec_free->file_array, sizeof(*file_array) * vec_free->count, err);
-    CHECK_NULL_ERR;
+    NULL_CHECK_ERR;
 
     memset(vec_free, 0, sizeof(*vec_free));
     return file_array;
@@ -328,7 +328,7 @@ static jfs_fw_file_t *fw_file_vector_to_array(fw_file_vector_t *vec_free, jfs_er
 
 static void fw_dir_vector_init(fw_dir_vector_t *vec_init, jfs_err_t *err) {
     jfs_fw_dir_t *new_dir_array = jfs_malloc(sizeof(*new_dir_array) * FW_DIR_VECTOR_DEFAULT_CAPACITY, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     vec_init->dir_array = new_dir_array;
     vec_init->capacity = FW_DIR_VECTOR_DEFAULT_CAPACITY;
@@ -352,7 +352,7 @@ static void fw_dir_vector_push(fw_dir_vector_t *vec, jfs_fw_dir_t *dir_free, jfs
         const size_t new_capacity = vec->capacity * 2;
 
         jfs_fw_dir_t *new_dir_array = jfs_realloc(vec->dir_array, sizeof(*new_dir_array) * new_capacity, err);
-        CHECK_VOID_ERR;
+        VOID_CHECK_ERR;
 
         vec->dir_array = new_dir_array;
         vec->capacity = new_capacity;
@@ -366,7 +366,7 @@ static jfs_fw_dir_t *fw_dir_vector_to_array(fw_dir_vector_t *vec_free, jfs_err_t
     NULL_FAIL_IF(vec_free->count == 0, JFS_ERR_EMPTY);
 
     jfs_fw_dir_t *dir_array = jfs_realloc(vec_free->dir_array, sizeof(*dir_array) * vec_free->count, err);
-    CHECK_NULL_ERR;
+    NULL_CHECK_ERR;
 
     memset(vec_free, 0, sizeof(*vec_free));
     return dir_array;
@@ -383,7 +383,7 @@ static void fw_scan_dir(DIR *dir, fw_file_vector_t *vec, jfs_err_t *err) {
             RES_ERR;
             continue;
         }
-        CHECK_VOID_ERR;
+        VOID_CHECK_ERR;
     }
 
     VOID_FAIL_IF(errno != 0, JFS_ERR_SYS);
@@ -392,12 +392,12 @@ static void fw_scan_dir(DIR *dir, fw_file_vector_t *vec, jfs_err_t *err) {
 static void fw_handle_dirent(const struct dirent *ent, fw_file_vector_t *vec, jfs_err_t *err) {
     jfs_fw_file_t file = {0};
     fw_file_init(&file, ent, err);
-    CHECK_VOID_ERR;
+    VOID_CHECK_ERR;
 
     fw_file_vector_push(vec, &file, err);
     if (*err != JFS_OK) {
         jfs_fw_file_free(&file);
-        RETURN_VOID_ERR;
+        VOID_RETURN_ERR;
     }
 }
 
@@ -415,12 +415,12 @@ static void fw_push_dir_paths(fw_path_vector_t *path_vec, fw_file_vector_t *file
         }
 
         jfs_fio_path_init(&push_path, buf.data, err);
-        CHECK_VOID_ERR;
+        VOID_CHECK_ERR;
 
         fw_path_vector_push(path_vec, &push_path, err);
         if (*err != JFS_OK) {
             jfs_fio_path_free(&push_path);
-            RETURN_VOID_ERR;
+            VOID_RETURN_ERR;
         }
     }
 }

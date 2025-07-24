@@ -1,109 +1,89 @@
+#include "error.h"
 #include "net_socket.h"
 #include <fcntl.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
-int main() {
-    struct net_socket *server = net_socket_create();
-    if (server == NULL) {
-        perror("failed to create socket");
-        exit(EXIT_FAILURE);
-    }
+#define SERV_PORT 20727
 
-    if (net_socket_set_ip(server, 30727, "0.0.0.0") == -1) {
-        perror("failed to address");
-        exit(EXIT_FAILURE);
-    }
+struct test_data {
+    int  a;
+    int  b;
+    int  c;
+    char str[100]; // NOLINT
+};
 
-    if (net_socket_bind(server) == -1) {
-        perror("failed to bind");
-        exit(EXIT_FAILURE);
-    }
+void print_test_data(const struct test_data *data) {
+    printf("test_data {\n");
+    printf("  a = %d\n", data->a);
+    printf("  b = %d\n", data->b);
+    printf("  c = %d\n", data->c);
+    printf("  str = \"%s\"\n", data->str);
+    printf("}\n");
+}
 
-    if (net_socket_listen(server) == -1) {
-        perror("failed to listen");
-        exit(EXIT_FAILURE);
-    }
+void run(jfs_err_t *err) { // NOLINT
+    jfs_ns_socket_t *server = jfs_ns_socket_create(err);
+    GOTO_IF_ERR(cleanup);
 
-    struct net_socket *connection;
-    if (net_socket_accept(server, &connection) == -1) {
-        perror("failed to accept");
-        exit(EXIT_FAILURE);
-    }
+    jfs_ns_socket_open(server, err);
+    GOTO_IF_ERR(cleanup);
 
-    printf("connected to client\n");
+    jfs_ns_socket_set_ip(server, SERV_PORT, "0.0.0.0", err);
+    GOTO_IF_ERR(cleanup);
 
-    size_t size_of_file;
+    jfs_ns_socket_bind(server, err);
+    GOTO_IF_ERR(cleanup);
 
-    ssize_t size_recv = net_socket_recv(connection, &size_of_file, sizeof(size_of_file));
-    if (size_recv == -1) {
-        perror("failed to read");
-        net_socket_destroy(&connection);
-        net_socket_destroy(&server);
-        exit(EXIT_FAILURE);
-    }
-    if (size_recv == 0) {
-        perror("peer closed connection unexpectedly");
-        net_socket_destroy(&connection);
-        net_socket_destroy(&server);
-        exit(EXIT_FAILURE);
-    }
+    jfs_ns_socket_listen(server, err);
+    GOTO_IF_ERR(cleanup);
 
-    printf("the size of the file is: %zu\n", size_of_file);
+    struct test_data recv_data = {0};
 
-    int fd = open("pic.jpg", O_WRONLY);
-    if (fd == -1) {
-        perror("failed to open file");
-        net_socket_destroy(&connection);
-        net_socket_destroy(&server);
-        exit(EXIT_FAILURE);
-    }
+    jfs_ns_socket_recv(server, &recv_data, sizeof(recv_data), err);
+    GOTO_IF_ERR(cleanup);
+    print_test_data(&recv_data);
 
-    size_t tr;
-    size_t tw;
-    int    status = net_socket_file_recv(connection, fd, size_of_file, &tr, &tw);
-    if (status == -1) {
-        perror("error on file recv");
-        net_socket_destroy(&connection);
-        net_socket_destroy(&server);
-        exit(EXIT_FAILURE);
-    }
-    if (status == -2) {
-        perror("error on file write");
-        net_socket_destroy(&connection);
-        net_socket_destroy(&server);
-        exit(EXIT_FAILURE);
-    }
-    if (status == -3) {
-        perror("peer closed connection");
-        net_socket_destroy(&connection);
-        net_socket_destroy(&server);
-        exit(EXIT_FAILURE);
-    }
+    struct test_data send_data = {
+        .a = 85, // NOLINT
+        .b = 69, // NOLINT
+        .c = 42, // NOLINT
+        .str = "uma musume: pretty derby\n",
+    };
 
-    printf("size recv: %zu\n", tr);
-    printf("size written: %zu\n", tw);
+    jfs_ns_socket_send(server, &send_data, sizeof(send_data), 0, err);
+    GOTO_IF_ERR(cleanup);
 
-    net_socket_shutdown(connection);
-    char recv_buf[4000];
+    jfs_ns_socket_shutdown(server, err);
+    GOTO_IF_ERR(cleanup);
+
     while (1) {
-        ssize_t r = net_socket_recv(connection, recv_buf, 4000);
-
-        if (r == 0) {
+        jfs_ns_socket_recv(server, &recv_data, sizeof(recv_data), err);
+        if (*err == JFS_ERR_NS_CONNECTION_CLOSE) {
             printf("safe shutdown\n");
             break;
         }
 
-        if (r == -1) {
-            perror("shutdown recv fail");
-            net_socket_destroy(&connection);
-            net_socket_destroy(&server);
-            exit(EXIT_FAILURE);
+        if (*err != JFS_OK) {
+            printf("unsafe shutdown\n");
+            GOTO_IF_ERR(cleanup);
         }
+        print_test_data(&recv_data);
     }
-    net_socket_destroy(&server);
-    net_socket_destroy(&connection);
 
+    jfs_ns_socket_close(server, err);
+    if (*err != JFS_OK) RES_ERR;
+    jfs_ns_socket_destroy(&server);
+
+    return;
+cleanup:
+    jfs_ns_socket_destroy(&server);
+    VOID_RETURN_ERR;
+}
+
+int main() {
+    jfs_err_t err;
+    run(&err);
     return 0;
 }

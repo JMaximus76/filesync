@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 const char *jfs_err_str(const jfs_err_t *err) {
     switch (*err) {
@@ -39,7 +40,7 @@ void jfs_lstat(const char *path_str, struct stat *stat_init, jfs_err_t *err) {
             case ENOTDIR: *err = JFS_ERR_INVAL_PATH; break;
             default:      *err = JFS_ERR_SYS; break;
         }
-        RETURN_VOID_ERR;
+        VOID_RETURN_ERR;
     }
 }
 
@@ -52,7 +53,7 @@ DIR *jfs_opendir(const char *path_str, jfs_err_t *err) {
             case EACCES:  *err = JFS_ERR_ACCESS; break;
             default:      *err = JFS_ERR_SYS; break;
         }
-        RETURN_NULL_ERR;
+        NULL_RETURN_ERR;
     }
 
     return dir;
@@ -63,7 +64,7 @@ void jfs_shutdown(int sock_fd, int how, jfs_err_t *err) {
         switch (errno) {
             default: *err = JFS_ERR_SYS; break;
         }
-        RETURN_VOID_ERR;
+        VOID_RETURN_ERR;
     }
 }
 
@@ -78,7 +79,7 @@ struct addrinfo *jfs_getaddrinfo(const char *name, const char *port_str, const s
             case EAI_SYSTEM: *err = JFS_ERR_SYS; break;
             default:         *err = JFS_ERR_GETADDRINFO; break;
         }
-        RETURN_NULL_ERR;
+        NULL_RETURN_ERR;
     }
 
     return result;
@@ -89,7 +90,7 @@ void jfs_bind(int sock_fd, const struct sockaddr *addr, socklen_t addrlen, jfs_e
         switch (errno) {
             default: *err = JFS_ERR_SYS; break;
         }
-        RETURN_VOID_ERR;
+        VOID_RETURN_ERR;
     }
 }
 
@@ -98,7 +99,7 @@ void jfs_listen(int sock_fd, int backlog, jfs_err_t *err) {
         switch (errno) {
             default: *err = JFS_ERR_SYS; break;
         }
-        RETURN_VOID_ERR;
+        VOID_RETURN_ERR;
     }
 }
 
@@ -118,7 +119,7 @@ int jfs_accept(int sock_fd, struct sockaddr *addr, socklen_t *addrlen, jfs_err_t
             case EINTR:        *err = JFS_ERR_INTER; break;
             default:           *err = JFS_ERR_SYS; break;
         }
-        RETURN_VAL_ERR(-1);
+        VAL_RETURN_ERR(-1);
     }
 
     return accepted_fd;
@@ -134,7 +135,7 @@ void jfs_connect(int sock_fd, const struct sockaddr *addr, socklen_t addrlen, jf
             case EINTR:        *err = JFS_ERR_INTER; break;
             default:           *err = JFS_ERR_SYS; break;
         }
-        RETURN_VOID_ERR;
+        VOID_RETURN_ERR;
     }
 }
 
@@ -146,7 +147,7 @@ size_t jfs_recv(int sock_fd, void *buf, size_t size, int flags, jfs_err_t *err) 
             case EINTR:  *err = JFS_ERR_INTER; break;
             default:     *err = JFS_ERR_SYS; break;
         }
-        RETURN_VAL_ERR(0);
+        VAL_RETURN_ERR(0);
     }
 
     return (size_t) status;
@@ -162,8 +163,29 @@ size_t jfs_send(int sock_fd, const void *buf, size_t size, int flags, jfs_err_t 
             case EPIPE:      *err = JFS_ERR_PIPE; break;
             default:         *err = JFS_ERR_SYS; break;
         }
-        RETURN_VAL_ERR(0);
+        VAL_RETURN_ERR(0);
     }
 
     return (size_t) status;
+}
+
+int jfs_socket(int domain, int type, int protocol, jfs_err_t *err) {
+    int new_fd = socket(domain, type, protocol);
+    if (new_fd == -1) {
+        switch (errno) {
+            default: *err = JFS_ERR_SYS; break;
+        }
+        VAL_RETURN_ERR(-1);
+    }
+
+    return new_fd;
+}
+
+void jfs_close(int close_fd, jfs_err_t *err) {
+    if (close(close_fd) == -1) {
+        switch (errno) {
+            default: *err = JFS_ERR_SYS; break;
+        }
+        VOID_RETURN_ERR;
+    }
 }
