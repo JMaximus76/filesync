@@ -23,7 +23,7 @@ void print_test_data(const struct test_data *data) {
     printf("}\n");
 }
 
-void run(jfs_err_t *err) { //NOLINT
+void run(jfs_err_t *err) { // NOLINT
     jfs_ns_socket_t *client = jfs_ns_socket_create(err);
     GOTO_IF_ERR(cleanup);
 
@@ -41,7 +41,7 @@ void run(jfs_err_t *err) { //NOLINT
         .a = 727, // NOLINT
         .b = 76,  // NOLINT
         .c = 2,
-        .str = "hi from over there\n",
+        .str = "hi from over there",
     };
 
     jfs_ns_socket_send(client, &send_data, sizeof(send_data), 0, err);
@@ -59,8 +59,9 @@ void run(jfs_err_t *err) { //NOLINT
         jfs_ns_socket_recv(client, &recv_data, sizeof(recv_data), err);
         if (*err == JFS_ERR_NS_CONNECTION_CLOSE) {
             printf("safe shutdown\n");
+            RES_ERR;
             break;
-        } 
+        }
 
         if (*err != JFS_OK) {
             printf("unsafe shutdown\n");

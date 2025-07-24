@@ -24,7 +24,17 @@ void print_test_data(const struct test_data *data) {
 }
 
 void run(jfs_err_t *err) { // NOLINT
-    jfs_ns_socket_t *server = jfs_ns_socket_create(err);
+    jfs_ns_socket_t *client;
+    jfs_ns_socket_t *server;
+    struct test_data recv_data = {0};
+    struct test_data send_data = {
+        .a = 85, // NOLINT
+        .b = 69, // NOLINT
+        .c = 42, // NOLINT
+        .str = "uma musume: pretty derby",
+    };
+
+    server = jfs_ns_socket_create(err);
     GOTO_IF_ERR(cleanup);
 
     jfs_ns_socket_open(server, err);
@@ -39,29 +49,25 @@ void run(jfs_err_t *err) { // NOLINT
     jfs_ns_socket_listen(server, err);
     GOTO_IF_ERR(cleanup);
 
-    struct test_data recv_data = {0};
-
-    jfs_ns_socket_recv(server, &recv_data, sizeof(recv_data), err);
+    client = jfs_ns_socket_accept(server, err);
     GOTO_IF_ERR(cleanup);
+
+    jfs_ns_socket_recv(client, &recv_data, sizeof(recv_data), err);
+    GOTO_IF_ERR(cleanup);
+
     print_test_data(&recv_data);
 
-    struct test_data send_data = {
-        .a = 85, // NOLINT
-        .b = 69, // NOLINT
-        .c = 42, // NOLINT
-        .str = "uma musume: pretty derby\n",
-    };
-
-    jfs_ns_socket_send(server, &send_data, sizeof(send_data), 0, err);
+    jfs_ns_socket_send(client, &send_data, sizeof(send_data), 0, err);
     GOTO_IF_ERR(cleanup);
 
-    jfs_ns_socket_shutdown(server, err);
+    jfs_ns_socket_shutdown(client, err);
     GOTO_IF_ERR(cleanup);
 
     while (1) {
-        jfs_ns_socket_recv(server, &recv_data, sizeof(recv_data), err);
+        jfs_ns_socket_recv(client, &recv_data, sizeof(recv_data), err);
         if (*err == JFS_ERR_NS_CONNECTION_CLOSE) {
             printf("safe shutdown\n");
+            RES_ERR;
             break;
         }
 
@@ -72,13 +78,15 @@ void run(jfs_err_t *err) { // NOLINT
         print_test_data(&recv_data);
     }
 
-    jfs_ns_socket_close(server, err);
+    jfs_ns_socket_close(client, err);
     if (*err != JFS_OK) RES_ERR;
+    jfs_ns_socket_destroy(&client);
     jfs_ns_socket_destroy(&server);
 
     return;
 cleanup:
     jfs_ns_socket_destroy(&server);
+    jfs_ns_socket_destroy(&client);
     VOID_RETURN_ERR;
 }
 
