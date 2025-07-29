@@ -18,6 +18,8 @@ add_library(jfs_modules STATIC
     src/modules/file_io.c
     src/modules/file_walk.c
     src/modules/net_socket.c
+    src/modules/thread_safe_queue.c
+    src/modules/thread_message.c
 )
 
 target_include_directories(jfs_modules PUBLIC

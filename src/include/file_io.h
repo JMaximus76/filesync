@@ -24,6 +24,9 @@ struct jfs_fio_name {
     char  *str;
 };
 
+size_t jfs_fio_write(int fd, const void *buf, size_t size, jfs_err_t *err);
+size_t jfs_fio_read(int fd, void *buf, size_t size, jfs_err_t *err);
+
 void jfs_fio_path_init(jfs_fio_path_t *path_init, const char *path_str, jfs_err_t *err);
 void jfs_fio_path_free(jfs_fio_path_t *path_free);
 void jfs_fio_path_transfer(jfs_fio_path_t *path_init, jfs_fio_path_t *path_free);

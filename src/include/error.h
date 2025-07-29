@@ -18,6 +18,8 @@
         printf(RES_STR, jfs_err_str(err), __func__); \
         *err = JFS_OK;                               \
     } while (0)
+
+#define IGNORE_ERR *err = JFS_OK;
 // TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP TEMP
 
 #define VOID_RETURN_ERR \
@@ -109,14 +111,19 @@
     X(JFS_ERR_INVAL_PATH)          \
     X(JFS_ERR_ARG)                 \
     X(JFS_ERR_EMPTY)               \
+    X(JFS_ERR_FULL)                \
     X(JFS_ERR_GETADDRINFO)         \
     X(JFS_ERR_LAN_HOST_UNREACH)    \
     X(JFS_ERR_CONNECTION_ABORT)    \
     X(JFS_ERR_CONNECTION_RESET)    \
     X(JFS_ERR_PIPE)                \
+    X(JFS_ERR_MUTEX_BUSY)          \
+    X(JFS_ERR_COND_BUSY)           \
+    X(JFS_ERR_COND_TIMED_OUT)      \
     X(JFS_ERR_FIO_PATH_LEN)        \
     X(JFS_ERR_FIO_NAME_LEN)        \
     X(JFS_ERR_FIO_PATH_OVERFLOW)   \
+    X(JFS_ERR_FIO_FILE_END)        \
     X(JFS_ERR_FW_STATE)            \
     X(JFS_ERR_FW_SKIP)             \
     X(JFS_ERR_FW_FAIL)             \
@@ -124,7 +131,10 @@
     X(JFS_ERR_FW_UNKNOWN)          \
     X(JFS_ERR_NS_BAD_ACCEPT)       \
     X(JFS_ERR_NS_BAD_ADDR)         \
-    X(JFS_ERR_NS_CONNECTION_CLOSE)
+    X(JFS_ERR_NS_CONNECTION_CLOSE) \
+    X(JFS_ERR_TSQ_SHUTDOWN)        \
+    X(JFS_ERR_TSQ_BUSY)            \
+    X(JFS_ERR_TM_NOT_SHUTDOWN)
 
 typedef enum {
 #define X(name) name,
@@ -146,6 +156,15 @@ int              jfs_accept(int sock_fd, struct sockaddr *addr, socklen_t *addrl
 void             jfs_connect(int sock_fd, const struct sockaddr *addr, socklen_t addrlen, jfs_err_t *err);
 size_t           jfs_recv(int sock_fd, void *buf, size_t size, int flags, jfs_err_t *err) WUR;
 size_t           jfs_send(int sock_fd, const void *buf, size_t size, int flags, jfs_err_t *err) WUR;
-int              jfs_socket(int domain, int type, int protocol, jfs_err_t *err);
+int              jfs_socket(int domain, int type, int protocol, jfs_err_t *err) WUR;
 void             jfs_close(int close_fd, jfs_err_t *err);
+void             jfs_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr, jfs_err_t *err);
+void             jfs_mutex_destroy(pthread_mutex_t *mutex, jfs_err_t *err);
+void             jfs_mutex_trylock(pthread_mutex_t *mutex, jfs_err_t *err);
+void             jfs_cond_destroy(pthread_cond_t *cond, jfs_err_t *err);
+void             jfs_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *time, jfs_err_t *err);
+int              jfs_eventfd(unsigned int initval, int flags, jfs_err_t *err) WUR;
+size_t           jfs_read(int fd, void *buf, size_t size, jfs_err_t *err) WUR;
+size_t           jfs_write(int fd, const void *buf, size_t size, jfs_err_t *err) WUR;
+
 #endif

@@ -1,7 +1,9 @@
 #include "error.h"
 #include "file_walk.h"
+#include "thread_message.h"
 #include <dirent.h>
 #include <inttypes.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <time.h>
 
@@ -16,7 +18,6 @@ void print_time(const struct test_times *times);
 void print_status(const char *test_name, jfs_err_t *err);
 
 void file_walk_test(int verbose_flag, jfs_err_t *err);
-
 
 void start_time(struct test_times *times) {
     clock_gettime(CLOCK_MONOTONIC, &times->start);
@@ -42,6 +43,14 @@ void print_status(const char *test_name, jfs_err_t *err) {
     }
 }
 
+void msg_queue_test(bool verbose_flag, jfs_err_t *err) {
+    jfs_tm_queue_t *queue = NULL;
+
+    queue = jfs_tm_queue_create(err);
+
+     
+}
+
 void file_walk_test(int verbose_flag, jfs_err_t *err) { // NOLINT
     struct test_times times = {0};
     jfs_fw_record_t   record = {0};
@@ -64,7 +73,7 @@ void file_walk_test(int verbose_flag, jfs_err_t *err) { // NOLINT
         GOTO_IF_ERR(cleanup);
     }
 
-    jfs_fw_record_init(&record, &state, err);
+    jfs_fw_record_init(&record, state, err);
     GOTO_IF_ERR(cleanup);
 
     stop_time(&times);
@@ -89,7 +98,7 @@ void file_walk_test(int verbose_flag, jfs_err_t *err) { // NOLINT
 cleanup:
     stop_time(&times);
     jfs_fio_path_free(&path);
-    jfs_fw_state_destroy(&state);
+    jfs_fw_state_destroy(state);
     VOID_RETURN_ERR;
 }
 

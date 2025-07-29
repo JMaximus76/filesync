@@ -37,8 +37,8 @@ struct jfs_fw_state {
 };
 
 static jfs_fw_types_t fw_map_dirent_type(unsigned char ent_type, jfs_err_t *err);
-static void fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent, jfs_err_t *err);
-static void fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_fio_path_t *path_free, jfs_err_t *err);
+static void           fw_file_init(jfs_fw_file_t *file_init, const struct dirent *ent, jfs_err_t *err);
+static void           fw_dir_init(jfs_fw_dir_t *dir_init, fw_file_vector_t *vec_free, jfs_fio_path_t *path_free, jfs_err_t *err);
 
 static void fw_path_vector_init(fw_path_vector_t *vec_init, jfs_err_t *err);
 static void fw_path_vector_free(fw_path_vector_t *vec_free);
@@ -119,17 +119,14 @@ cleanup:
     NULL_RETURN_ERR;
 }
 
-void jfs_fw_state_destroy(jfs_fw_state_t **state_give) {
-    if (state_give == NULL || *state_give == NULL) return;
+void jfs_fw_state_destroy(jfs_fw_state_t *state_move) {
+    if (state_move == NULL) return;
 
-    jfs_fw_state_t *state = *state_give;
-    fw_path_vector_free(&state->path_vec);
-    fw_dir_vector_free(&state->dir_vec);
+    fw_path_vector_free(&state_move->path_vec);
+    fw_dir_vector_free(&state_move->dir_vec);
 
-    free(state);
-    *state_give = NULL;
+    free(state_move);
 }
-
 
 int jfs_fw_state_step(jfs_fw_state_t *state, jfs_err_t *err) { // NOLINT(readability-function-cognitive-complexity)
     if (state->path_vec.count == 0) return 1;
@@ -173,17 +170,17 @@ cleanup:
     VAL_RETURN_ERR(state->path_vec.count == 0);
 }
 
-void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_give, jfs_err_t *err) {
-    jfs_fw_state_t *state = *state_give;
-    VOID_FAIL_IF(state->path_vec.count > 0, JFS_ERR_FW_STATE);
+void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t *state_move, jfs_err_t *err) {
+    VOID_FAIL_IF(state_move->path_vec.count > 0, JFS_ERR_FW_STATE);
 
-    size_t        new_dir_count = state->dir_vec.count;
-    jfs_fw_dir_t *new_dir_array = fw_dir_vector_to_array(&state->dir_vec, err);
+    size_t        new_dir_count = state_move->dir_vec.count;
+    jfs_fw_dir_t *new_dir_array = fw_dir_vector_to_array(&state_move->dir_vec, err);
     VOID_CHECK_ERR;
-    jfs_fw_state_destroy(state_give);
 
     record_init->dir_array = new_dir_array;
     record_init->dir_count = new_dir_count;
+
+    jfs_fw_state_destroy(state_move);
 }
 
 void jfs_fw_record_free(jfs_fw_record_t *record_free) {

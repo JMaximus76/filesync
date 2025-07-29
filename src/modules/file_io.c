@@ -5,6 +5,38 @@
 #include <stdlib.h>
 #include <string.h>
 
+size_t jfs_fio_write(int fd, const void *buf, size_t size, jfs_err_t *err) {
+    const uint8_t *write_buf = (uint8_t *) buf;
+    size_t         total_written = 0;
+
+    while (total_written < size) {
+        const size_t written = jfs_write(fd, write_buf + total_written, size - total_written, err);
+        if (*err == JFS_ERR_INTER) continue;
+        if (*err != JFS_OK) VAL_RETURN_ERR(total_written);
+        total_written += written;
+    }
+
+    return total_written;
+}
+
+size_t jfs_fio_read(int fd, void *buf, size_t size, jfs_err_t *err) {
+    uint8_t *read_buf = (uint8_t *) buf;
+    size_t         total_read = 0;
+
+    while (total_read < size) {
+        const size_t read = jfs_read(fd, read_buf + total_read, size - total_read, err);
+        if (*err == JFS_ERR_INTER) continue;
+        if (*err != JFS_OK) VAL_RETURN_ERR(total_read);
+        if (read == 0) {
+            *err = JFS_ERR_FIO_FILE_END;
+            VAL_RETURN_ERR(total_read);
+        }
+        total_read += read;
+    }
+
+    return total_read;
+}
+
 void jfs_fio_path_init(jfs_fio_path_t *path_init, const char *path_str, jfs_err_t *err) {
     size_t path_str_len = strlen(path_str);
 

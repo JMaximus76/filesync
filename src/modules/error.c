@@ -3,7 +3,9 @@
 #include <asm-generic/errno.h>
 #include <errno.h>
 #include <netdb.h>
+#include <pthread.h>
 #include <stdlib.h>
+#include <sys/eventfd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -188,4 +190,91 @@ void jfs_close(int close_fd, jfs_err_t *err) {
         }
         VOID_RETURN_ERR;
     }
+}
+
+void jfs_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr, jfs_err_t *err) {
+    if (pthread_mutex_init(mutex, attr) != 0) {
+        switch (errno) {
+            default: *err = JFS_ERR_SYS; break;
+        }
+        VOID_RETURN_ERR;
+    }
+}
+
+void jfs_mutex_destroy(pthread_mutex_t *mutex, jfs_err_t *err) {
+    if (pthread_mutex_destroy(mutex) != 0) {
+        switch (errno) {
+            case EBUSY: *err = JFS_ERR_MUTEX_BUSY; break;
+            default:    *err = JFS_ERR_SYS; break;
+        }
+        VOID_RETURN_ERR;
+    }
+}
+
+void jfs_mutex_trylock(pthread_mutex_t *mutex, jfs_err_t *err) {
+    if (pthread_mutex_trylock(mutex) != 0) {
+        switch (errno) {
+            case EBUSY: *err = JFS_ERR_MUTEX_BUSY; break;
+            default:    *err = JFS_ERR_SYS; break;
+        }
+        VOID_RETURN_ERR;
+    }
+}
+
+void jfs_cond_destroy(pthread_cond_t *cond, jfs_err_t *err) {
+    if (pthread_cond_destroy(cond) != 0) {
+        switch (errno) {
+            case EBUSY: *err = JFS_ERR_COND_BUSY; break;
+            default:    *err = JFS_ERR_SYS; break;
+        }
+        VOID_RETURN_ERR;
+    }
+}
+
+void jfs_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *time, jfs_err_t *err) {
+    if (pthread_cond_timedwait(cond, mutex, time) != 0) {
+        switch (errno) {
+            case ETIMEDOUT: *err = JFS_ERR_COND_TIMED_OUT; break;
+            default:        *err = JFS_ERR_SYS; break;
+        }
+        VOID_RETURN_ERR;
+    }
+}
+
+int jfs_eventfd(unsigned int initval, int flags, jfs_err_t *err) {
+    int event_fd = eventfd(initval, flags);
+    if (event_fd == -1) {
+        switch (errno) {
+            default: *err = JFS_ERR_SYS; break;
+        }
+        VAL_RETURN_ERR(-1);
+    }
+    return event_fd;
+}
+
+size_t jfs_read(int fd, void *buf, size_t size, jfs_err_t *err) {
+    ssize_t status = read(fd, buf, size);
+    if (status == -1) {
+        switch (errno) {
+            case EAGAIN: *err = JFS_ERR_AGAIN; break;
+            case EINTR:  *err = JFS_ERR_INTER; break;
+            default:     *err = JFS_ERR_SYS; break;
+        }
+        VAL_RETURN_ERR(0);
+    }
+    return (size_t) status;
+}
+
+size_t jfs_write(int fd, const void *buf, size_t size, jfs_err_t *err) {
+    ssize_t status = write(fd, buf, size);
+    if (status == -1) {
+        switch (errno) {
+            case EAGAIN: *err = JFS_ERR_AGAIN; break;
+            case EINTR:  *err = JFS_ERR_INTER; break;
+            case EPIPE:  *err = JFS_ERR_PIPE; break;
+            default:     *err = JFS_ERR_SYS; break;
+        }
+        VAL_RETURN_ERR(0);
+    }
+    return (size_t) status;
 }

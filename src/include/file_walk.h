@@ -40,10 +40,10 @@ void jfs_fw_dir_free(jfs_fw_dir_t *dir_free);
 void jfs_fw_dir_transfer(jfs_fw_dir_t *dir_init, jfs_fw_dir_t *dir_free);
 
 jfs_fw_state_t *jfs_fw_state_create(const jfs_fio_path_t *start_path, jfs_err_t *err) WUR;
-void            jfs_fw_state_destroy(jfs_fw_state_t **state_give);
+void            jfs_fw_state_destroy(jfs_fw_state_t *state_move);
 int             jfs_fw_state_step(jfs_fw_state_t *state, jfs_err_t *err) WUR;
 
-void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t **state_give, jfs_err_t *err);
+void jfs_fw_record_init(jfs_fw_record_t *record_init, jfs_fw_state_t *state_move, jfs_err_t *err);
 void jfs_fw_record_free(jfs_fw_record_t *record_free);
 
 #endif
