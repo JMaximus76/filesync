@@ -8,7 +8,8 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIREED ON)
 
 set(CMAKE_C_FLAGS_DEBUG "-Wall -Wextra -Wconversion -O0 -g")
-set(CMAKE_C_FLAGS "-Wall -Wextra -Wconversion -O3 -funroll-loops")
+set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer -funroll-loops")
+set(CMAKE_C_FLAGS "-O3 -funroll-loops")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -18,8 +19,7 @@ add_library(jfs_modules STATIC
     src/modules/file_io.c
     src/modules/file_walk.c
     src/modules/net_socket.c
-    src/modules/thread_safe_queue.c
-    src/modules/thread_message.c
+    src/modules/thread_safe_slab.c
 )
 
 target_include_directories(jfs_modules PUBLIC

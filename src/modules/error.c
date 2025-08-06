@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
+#include <sys/mman.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -277,4 +278,15 @@ size_t jfs_write(int fd, const void *buf, size_t size, jfs_err_t *err) {
         VAL_RETURN_ERR(0);
     }
     return (size_t) status;
+}
+
+void *jfs_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off, jfs_err_t *err) {
+    void *mem = mmap(addr, len, prot, flags, fd, off);
+    if (mem == MAP_FAILED) {
+        switch (errno) {
+            default: *err = JFS_ERR_SYS; break;
+        }
+        NULL_RETURN_ERR;
+    }
+    return mem;
 }

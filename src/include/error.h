@@ -92,6 +92,12 @@
         }                       \
     } while (0)
 
+#define GOTO_WITH_ERR(label_name, err_var) \
+    do {                                   \
+        *err = err_val;                    \
+        goto label_name                    \
+    } while (0)
+
 #define REMAP_ERR(from_var, to_var) \
     do {                            \
         if (*err == (from_var)) {   \
@@ -166,5 +172,6 @@ void             jfs_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex
 int              jfs_eventfd(unsigned int initval, int flags, jfs_err_t *err) WUR;
 size_t           jfs_read(int fd, void *buf, size_t size, jfs_err_t *err) WUR;
 size_t           jfs_write(int fd, const void *buf, size_t size, jfs_err_t *err) WUR;
+void            *jfs_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off, jfs_err_t *err) WUR;
 
 #endif

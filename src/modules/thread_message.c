@@ -82,7 +82,7 @@ jfs_tm_router_t *jfs_tm_router_create(jfs_err_t *err) {
 
 void jfs_tm_router_destroy(jfs_tm_router_t *router, jfs_err_t *err) {
     for (size_t i = 0; i < JFS_TM_QUEUE_ID_COUNT; i++) {
-        VOID_FAIL_IF(!jfs_tsq_is_free_ready(&router->queues[i]->tsq), JFS_ERR_TM_NOT_SHUTDOWN);
+        VOID_FAIL_IF(!jfs_tsq_is_empty(&router->queues[i]->tsq), JFS_ERR_TM_NOT_SHUTDOWN);
     }
 
     for (size_t i = 0; i < JFS_TM_QUEUE_ID_COUNT; i++) {

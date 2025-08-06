@@ -2,6 +2,7 @@
 #include "error.h"
 #include "file_io.h"
 #include <pthread.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/eventfd.h>
@@ -92,7 +93,7 @@ void *jfs_tsq_dequeue(jfs_tsq_queue_t *queue, jfs_err_t *err) {
     return item;
 }
 
-bool jfs_tsq_is_free_ready(jfs_tsq_queue_t *queue) {
+bool jfs_tsq_is_empty(jfs_tsq_queue_t *queue) {
     pthread_mutex_lock(&queue->lock);
     bool is_free_ready = queue->front->count == 0 && queue->chunk_count == 1;
     pthread_mutex_unlock(&queue->lock);
@@ -103,18 +104,48 @@ jfs_tsq_chunk_t *jfs_tsq_chunk_create(jfs_err_t *err) {
     jfs_tsq_chunk_t *chunk = jfs_malloc(sizeof(*chunk), err);
     NULL_CHECK_ERR;
     memset(chunk, 0, sizeof(*chunk));
+    atomic_init(&chunk->count, 0);
+    atomic_init(&chunk->head, chunk->items);
+    atomic_init(&chunk->tail, chunk->items);
     return chunk;
 }
 
 void jfs_tsq_chunk_destroy(jfs_tsq_chunk_t *chunk, void (*free_item)(void *)) {
+    // no atomics are used since there is only one consumer
     while (chunk->count != 0) {
-        free_item(chunk->items[chunk->head]);
-        chunk->head = (chunk->head + 1) % JFS_TSQ_CHUNK_SIZE;
+        free_item(*chunk->head);
+        chunk->head = chunk->head + 1;
+        if (chunk->head >= chunk->items + JFS_TSQ_CHUNK_SIZE) {
+            chunk->head = chunk->items;
+        }
+        chunk->count--;
     }
     free(chunk);
 }
 
-void jfs_tsq_chunk_enqueue(jfs_tsq_chunk_t *chunk, void *item) {
+void jfs_tsq_chunk_enqueue(jfs_tsq_chunk_t *chunk, void *item, jfs_err_t *err) {
+    size_t tail;
+    void  *expected;
+    do {
+        tail = atomic_load_explicit(&chunk->tail, memory_order_acquire);
+        expected = NULL;
+    } while (atomic_compare_exchange_weak_explicit(&chunk->items[tail], expected, item, memory_order_acquire, memory_order_relaxed));
+
+    void *expected = NULL;
+    if (atomic_compare_exchange_strong(*chunk->tail, expected, item)) { }
+
+    size_t count = atomic_fetch_add_explicit(&chunk->count, 1, memory_order_acquire);
+
+    if (count >= JFS_TSQ_CHUNK_SIZE) {
+        atomic_fetch_sub_explicit(&chunk->count, 1, memory_order_relaxed);
+        *err = JFS_ERR_FULL;
+        VOID_RETURN_ERR;
+    }
+
+    size_t tail = atomic_fetch_add_explicit(&chunk->tail, 1, memory_order_release);
+    atomic_exchange_explicit(
+
+
     chunk->items[chunk->tail] = item;
     chunk->tail = (chunk->tail + 1) % JFS_TSQ_CHUNK_SIZE;
     chunk->count += 1;
