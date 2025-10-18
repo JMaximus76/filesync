@@ -118,6 +118,7 @@
     X(JFS_ERR_ARG)                 \
     X(JFS_ERR_EMPTY)               \
     X(JFS_ERR_FULL)                \
+    X(JFS_ERR_BAD_CONF)            \
     X(JFS_ERR_GETADDRINFO)         \
     X(JFS_ERR_LAN_HOST_UNREACH)    \
     X(JFS_ERR_CONNECTION_ABORT)    \
@@ -138,9 +139,7 @@
     X(JFS_ERR_NS_BAD_ACCEPT)       \
     X(JFS_ERR_NS_BAD_ADDR)         \
     X(JFS_ERR_NS_CONNECTION_CLOSE) \
-    X(JFS_ERR_TSQ_SHUTDOWN)        \
-    X(JFS_ERR_TSQ_BUSY)            \
-    X(JFS_ERR_TM_NOT_SHUTDOWN)
+    X(JFS_ERR_BST_BAD_KEY)
 
 typedef enum {
 #define X(name) name,
@@ -173,5 +172,6 @@ int              jfs_eventfd(unsigned int initval, int flags, jfs_err_t *err) WU
 size_t           jfs_read(int fd, void *buf, size_t size, jfs_err_t *err) WUR;
 size_t           jfs_write(int fd, const void *buf, size_t size, jfs_err_t *err) WUR;
 void            *jfs_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off, jfs_err_t *err) WUR;
+void            *jfs_aligned_alloc(size_t align, size_t size, jfs_err_t *err) WUR;
 
 #endif

@@ -19,7 +19,12 @@ add_library(jfs_modules STATIC
     src/modules/file_io.c
     src/modules/file_walk.c
     src/modules/net_socket.c
-    src/modules/thread_safe_slab.c
+    src/modules/slab_allocator.c
+    src/modules/binary_search_tree.c
+    src/modules/lru_cache.c
+    src/modules/memory_block.c
+    src/modules/free_list.c
+    src/modules/memory_layout_generator.c
 )
 
 target_include_directories(jfs_modules PUBLIC

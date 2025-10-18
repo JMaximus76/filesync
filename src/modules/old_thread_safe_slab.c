@@ -1,4 +1,4 @@
-#include "thread_safe_slab.h"
+#include "old_thread_safe_slab.h"
 #include "error.h"
 #include <assert.h>
 #include <pthread.h>

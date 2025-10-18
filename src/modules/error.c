@@ -290,3 +290,13 @@ void *jfs_mmap(void *addr, size_t len, int prot, int flags, int fd, off_t off, j
     }
     return mem;
 }
+
+void *jfs_aligned_alloc(size_t align, size_t size, jfs_err_t *err) {
+    void *mem = NULL;
+    int   status = posix_memalign(&mem, align, size);
+    if (status != 0) {
+        *err = JFS_ERR_SYS;
+        NULL_RETURN_ERR;
+    }
+    return mem;
+}

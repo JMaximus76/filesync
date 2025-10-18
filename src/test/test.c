@@ -114,8 +114,8 @@ void tss_test(jfs_err_t *err) {
 
     jfs_tss_allocator_config_t config = {
         .cache_cap = 1028,                   // NOLINT
-        .cache_acquire = 1028,               // NOLINT
-        .cache_release = 1028,               // NOLINT
+        .cache_acquire_amount = 1028,               // NOLINT
+        .cache_release_amount = 1028,               // NOLINT
         .obj_align = alignof(struct thing), // NOLINT
         .obj_size = sizeof(struct thing),   // NOLINT
         .pages_per_slab = 64,               // NOLINT

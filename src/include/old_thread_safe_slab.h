@@ -1,5 +1,5 @@
-#ifndef JFS_THREAD_SAFE_SLAB_H
-#define JFS_THREAD_SAFE_SLAB_H
+#ifndef OLD_JFS_THREAD_SAFE_SLAB_H
+#define OLD_JFS_THREAD_SAFE_SLAB_H
 
 #include "error.h"
 #include <pthread.h>
