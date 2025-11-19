@@ -202,8 +202,7 @@ static sa_slab_t *sa_slab_create(const sa_config_t *conf, uint64_t new_slab_id, 
 
 static void sa_slab_link_batches(const sa_config_t *conf, sa_slab_t *slab, sa_batch_t *batch_buffer) {
     sa_batch_t batch = {0};
-    conf->batch_capacity
-    
+
     uintptr_t  slab_ptr_index = (uintptr_t) slab + conf->slab_offset;
     for (size_t i = 0; i < conf->batch_per_slab; i++) {
         for (uint32_t i = 0; i < conf->batch_capacity; i++) {

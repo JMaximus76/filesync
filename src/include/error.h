@@ -94,8 +94,8 @@
 
 #define GOTO_WITH_ERR(label_name, err_var) \
     do {                                   \
-        *err = err_val;                    \
-        goto label_name                    \
+        *err = err_var;                    \
+        goto label_name;                   \
     } while (0)
 
 #define REMAP_ERR(from_var, to_var) \

@@ -1,6 +1,8 @@
 #include "binary_search_tree.h"
+#include "memory_layout_generator.h"
 #include <assert.h>
 #include <iso646.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -9,19 +11,28 @@
 
 typedef struct bst_location bst_location_t;
 
-
 struct bst_location {
     jfs_bst_node_t *node;
     jfs_bst_node_t *parent;
     int             parent_cmp;
 };
 
-static void bst_find(const jfs_bst_t *tree, const void *key, bst_location_t *location_init);
-static void bst_insert(jfs_bst_t *tree, jfs_bst_node_t *node, const bst_location_t *location);
-static void bst_delete(jfs_bst_t *tree, jfs_bst_node_t *node);
+static void           *bst_container_value(const jfs_bst_t *tree, const jfs_bst_node_t *node) WUR;
+static jfs_bst_node_t *bst_container_node(const jfs_bst_t *tree, const void *value);
+static void           *bst_pack_node(const jfs_bst_t *tree, jfs_bst_node_t *node, const void *value);
+static void            bst_unpack_node(const jfs_bst_t *tree, const jfs_bst_node_t *node, void *value_out);
+static void            bst_attach_node(jfs_bst_node_t *base_node, jfs_bst_node_t *attach_node);
+static jfs_bst_node_t *bst_detach_node(jfs_bst_node_t *base_node);
 
-static void bst_fixup_cached_insert(jfs_bst_t *tree, const bst_location_t *location);
-static void bst_fixup_cached_delete(jfs_bst_t *tree, const jfs_bst_node_t *node);
+static jfs_bst_node_t *bst_check_cache(const jfs_bst_t *tree, const void *key) WUR;
+static bst_location_t  bst_find(const jfs_bst_t *tree, const void *key);
+static void            bst_insert(jfs_bst_t *tree, jfs_bst_node_t *node, const bst_location_t *location);
+static void            bst_delete(jfs_bst_t *tree, jfs_bst_node_t *node);
+static void            bst_detach_and_delete(jfs_bst_t *tree, void *value_out, jfs_bst_node_t *node);
+
+static void bst_update_cache_insert(jfs_bst_t *tree, const bst_location_t *location);
+static void bst_update_cache_delete(jfs_bst_t *tree, const jfs_bst_node_t *node);
+
 static void bst_fixup_insert(jfs_bst_t *tree, jfs_bst_node_t *node);
 static void bst_fixup_delete(jfs_bst_t *tree, jfs_bst_node_t *node);
 
@@ -37,10 +48,21 @@ static uint64_t        bst_color(const jfs_bst_node_t *node);
 static void            bst_set_color(jfs_bst_node_t *node, uint64_t color);
 static void            bst_set_parent_color(jfs_bst_node_t *node, jfs_bst_node_t *parent, uint64_t color);
 
+jfs_mlg_desc_t jfs_bst_make_desc(size_t obj_size, size_t obj_align, size_t obj_count, jfs_err_t *err) {
+    jfs_mlg_desc_t node_desc = {.align = alignof(jfs_bst_node_t), .size = sizeof(jfs_bst_node_t), .count = 1};
+    assert(jfs_mlg_valid_desc(&node_desc));
+
+    const jfs_mlg_desc_t obj_desc = {.align = obj_align, .size = obj_size, .count = obj_count};
+    VAL_FAIL_IF(!jfs_mlg_valid_desc(&obj_desc), JFS_ERR_ARG, (jfs_mlg_desc_t) {0});
+
+    jfs_mlg_append(&node_desc, &obj_desc); // we can reverse out the offset so we don't save it
+    return node_desc;
+}
+
 void jfs_bst_init(jfs_bst_t *tree_init, const jfs_bst_conf_t *conf, jfs_err_t *err) {
     assert(conf != NULL);
 
-    jfs_fl_init(&tree_init->free_list, &conf->fl_conf, err);
+    jfs_fl_init(&tree_init->free_list, conf->component, err);
     VOID_CHECK_ERR;
 
     tree_init->nil = &tree_init->nil_storage;
@@ -48,98 +70,143 @@ void jfs_bst_init(jfs_bst_t *tree_init, const jfs_bst_conf_t *conf, jfs_err_t *e
     tree_init->nil_storage.right = tree_init->nil;
     bst_set_parent_color(tree_init->nil, tree_init->nil, BST_BLACK);
 
-    tree_init->smallest = tree_init->nil;
-    tree_init->largest = tree_init->nil;
+    tree_init->cache.largest = tree_init->nil;
+    tree_init->cache.smallest = tree_init->nil;
+    tree_init->cache.previous = tree_init->nil;
     tree_init->root = tree_init->nil;
 
-    tree_init->fns = conf->fns;
-    VOID_FAIL_IF(tree_init->fns.cmp != NULL, JFS_ERR_BAD_CONF);
-    VOID_FAIL_IF(tree_init->fns.pack != NULL, JFS_ERR_BAD_CONF);
-    VOID_FAIL_IF(tree_init->fns.unpack != NULL, JFS_ERR_BAD_CONF);
-    VOID_FAIL_IF(tree_init->fns.attach != NULL, JFS_ERR_BAD_CONF);
-    VOID_FAIL_IF(tree_init->fns.detach != NULL, JFS_ERR_BAD_CONF);
+    tree_init->value_offset = jfs_mlg_align_size(sizeof(jfs_bst_node_t), conf->component->desc.align);
+    tree_init->value_size = conf->component->desc.size - tree_init->value_offset;
+
+    tree_init->cmp = conf->cmp;
+    VOID_FAIL_IF(tree_init->cmp == NULL, JFS_ERR_BAD_CONF);
 }
 
 void jfs_bst_puts(jfs_bst_t *tree, const void *value, const void *key, jfs_err_t *err) {
     VOID_FAIL_IF(tree->free_list.count == 0, JFS_ERR_FULL);
-    void *const           container = jfs_fl_alloc(&tree->free_list);
-    jfs_bst_node_t *const node = tree->fns.pack(container, value);
+    jfs_bst_node_t *const node = jfs_fl_alloc(&tree->free_list);
+    void *const           packed_value = bst_pack_node(tree, node, value);
 
-    bst_location_t location = {0};
-    bst_find(tree, key, &location);
+    // look to see if the key matches a node in the cache
+    jfs_bst_node_t *const cached_node = bst_check_cache(tree, key);
+    if (cached_node != tree->nil) {
+        tree->attach(bst_container_value(tree, cached_node), packed_value);
+        tree->cache.previous = cached_node;
+        return;
+    }
+
+    // find the node in the tree
+    bst_location_t location = bst_find(tree, key);
 
     if (location.node != tree->nil) { // key is a dupe
-        tree->fns.attach(location.node, container);
+        tree->attach(bst_container_value(tree, location.node), packed_value);
     } else { // key is not a dupe
         bst_insert(tree, node, &location);
+        bst_update_cache_insert(tree, &location);
     }
+
+    tree->cache.previous = node; // since it was a cache miss we update this cache
 }
 
-void jfs_bst_gets(jfs_bst_t *tree, void *value_out, const void *key, jfs_err_t *err) {
+void jfs_bst_takes(jfs_bst_t *tree, void *value_out, const void *key, jfs_err_t *err) {
     VOID_FAIL_IF(tree->root == tree->nil, JFS_ERR_EMPTY);
 
-    bst_location_t location = {0};
-    bst_find(tree, key, &location);
+    jfs_bst_node_t *const cached_node = bst_check_cache(tree, key);
+    if (cached_node != tree->nil) {
+        bst_unpack_node(tree, cached_node, value_out);
+        return; // we found the node in the cache so we are done
+    }
 
+    bst_location_t location = bst_find(tree, key);
     VOID_FAIL_IF(location.node == tree->nil, JFS_ERR_BST_BAD_KEY);
 
-    void      *container = NULL;
-    const bool do_delete = tree->fns.detach(location.node, &container);
-    tree->fns.unpack(container, value_out);
-    if (do_delete) {
-        bst_delete(tree, location.node);
-    }
+    bst_detach_and_delete(tree, value_out, location.node);
 }
 
-void jfs_bst_cached_gets(jfs_bst_t *tree, void *value_out, jfs_bst_cached_t type, jfs_err_t *err) {
-    VOID_FAIL_IF(tree->root == tree->nil, JFS_ERR_EMPTY);
-
-    jfs_bst_node_t *node = NULL;
-    assert(type == JFS_BST_LARGEST || type == JFS_BST_SMALLEST);
-    if (type == JFS_BST_SMALLEST) {
-        node = tree->smallest;
-    } else {
-        node = tree->largest;
-    }
-
-    assert(node != tree->nil);
-
-    void      *container = NULL;
-    const bool do_delete = tree->fns.detach(node, &container);
-    tree->fns.unpack(container, value_out);
-    if (do_delete) {
-        bst_delete(tree, node);
-    }
+void jfs_bst_get_largest(jfs_bst_t *tree, void *value_out, jfs_err_t *err) {
+    VOID_FAIL_IF(tree->cache.largest == tree->nil, JFS_ERR_EMPTY);
+    bst_detach_and_delete(tree, value_out, tree->cache.largest);
 }
 
-static void bst_find(const jfs_bst_t *tree, const void *key, bst_location_t *location_init) {
+void jfs_bst_get_smallest(jfs_bst_t *tree, void *value_out, jfs_err_t *err) {
+    VOID_FAIL_IF(tree->cache.smallest == tree->nil, JFS_ERR_EMPTY);
+    bst_detach_and_delete(tree, value_out, tree->cache.smallest);
+}
+
+static void *bst_container_value(const jfs_bst_t *tree, const jfs_bst_node_t *node) {
+    return jfs_mlg_apply_offset((uint8_t *) node, tree->value_offset);
+}
+
+static jfs_bst_node_t *bst_container_node(const jfs_bst_t *tree, const void *value) {
+    return (jfs_bst_node_t *) (((uint8_t *) value) - tree->value_offset);
+}
+
+static void *bst_pack_node(const jfs_bst_t *tree, jfs_bst_node_t *node, const void *value) {
+    void *const value_ptr = bst_container_value(tree, node);
+    memcpy(value_ptr, value, tree->value_size);
+    return value_ptr;
+}
+
+static void bst_unpack_node(const jfs_bst_t *tree, const jfs_bst_node_t *node, void *value_out) {
+    void *const value_ptr = bst_container_value(tree, node);
+    memcpy(value_out, value_ptr, tree->value_size);
+}
+
+static void bst_attach_node(jfs_bst_node_t *base_node, jfs_bst_node_t *attach_node) {
+    attach_node->list = base_node->list;
+    base_node->list = attach_node;
+}
+static jfs_bst_node_t *bst_detach_node(jfs_bst_node_t *base_node) {
+    if (base_node->list == NULL) return base_node;
+
+    jfs_bst_node_t *ret = base_node->list;
+    base_node->list = base_node->list->list;
+    return ret;
+}
+
+static jfs_bst_node_t *bst_check_cache(const jfs_bst_t *tree, const void *key) {
+    if (tree->cache.previous != tree->nil) {
+        const void *const previous_value = bst_container_value(tree, tree->cache.previous);
+        if (tree->cmp(key, previous_value) == 0) return tree->cache.previous;
+    }
+
+    if (tree->cache.largest != tree->nil) {
+        const void *const largest_value = bst_container_value(tree, tree->cache.largest);
+        if (tree->cmp(key, largest_value) == 0) return tree->cache.largest;
+    }
+
+    if (tree->cache.smallest != tree->nil) {
+        const void *const smallest_value = bst_container_value(tree, tree->cache.smallest);
+        if (tree->cmp(key, smallest_value) == 0) return tree->cache.smallest;
+    }
+
+    return tree->nil;
+}
+
+static bst_location_t bst_find(const jfs_bst_t *tree, const void *key) {
     assert(tree != NULL);
     assert(key != NULL);
 
-    jfs_bst_node_t *node = tree->root;
-    jfs_bst_node_t *parent = tree->nil;
+    bst_location_t location = {.node = tree->root, .parent = tree->nil, .parent_cmp = 0};
 
-    while (node != tree->nil) {
-        const int cmp_result = tree->fns.cmp(key, node);
-        if (cmp_result == -1) {
-            parent = node;
-            node = node->left;
-        } else if (cmp_result == 1) {
-            parent = node;
-            node = node->right;
-        } else {
-            break;
+    while (location.node != tree->nil) {
+        const void *node_value = bst_container_value(tree, location.node);
+        const int   cmp_result = tree->cmp(key, node_value);
+
+        // we found a matching node
+        if (cmp_result == 0) return location;
+
+        location.parent = location.node;
+        location.parent_cmp = cmp_result;
+
+        if (cmp_result < 0) {
+            location.node = location.node->left;
+        } else { // cmp_result > 0
+            location.node = location.node->right;
         }
     }
 
-    if (parent != tree->nil) {
-        location_init->parent_cmp = tree->fns.cmp(key, parent);
-    } else {
-        location_init->parent_cmp = 0;
-    }
-
-    location_init->node = node;
-    location_init->parent = parent;
+    return location;
 }
 
 static void bst_insert(jfs_bst_t *tree, jfs_bst_node_t *node, const bst_location_t *location) {
@@ -161,14 +228,11 @@ static void bst_insert(jfs_bst_t *tree, jfs_bst_node_t *node, const bst_location
         }
     }
 
-    bst_fixup_cached_insert(tree, location);
     bst_fixup_insert(tree, node);
 }
 
 static void bst_delete(jfs_bst_t *tree, jfs_bst_node_t *node) {
     assert(node != tree->nil); // must have something to delete
-
-    bst_fixup_cached_delete(tree, node);
 
     jfs_bst_node_t *replacement = tree->nil;
     uint64_t        deleted_color = bst_color(node);
@@ -203,35 +267,56 @@ static void bst_delete(jfs_bst_t *tree, jfs_bst_node_t *node) {
     }
 }
 
-static void bst_fixup_cached_insert(jfs_bst_t *tree, const bst_location_t *location) {
-    // we don't use location->node because this is assumed to be nil
-    if (location->parent_cmp == -1 && location->parent == tree->smallest) {
-        tree->smallest = location->parent->left;
-    } else if (location->parent_cmp == 1 && location->parent == tree->largest) {
-        tree->largest = location->parent->right;
+static void bst_detach_and_delete(jfs_bst_t *tree, void *value_out, jfs_bst_node_t *node) {
+    assert(tree != NULL);
+    assert(tree->root != tree->nil); // tree can't be empty
+
+    void *const       node_value = bst_container_value(tree, node);
+    const void *const detach_value = tree->detach(node_value);
+    memcpy(value_out, detach_value, tree->value_size); // value_out has been loaded
+
+    if (detach_value == node_value) { // the detach is detaching the node linked on the tree
+        bst_delete(tree, node);
+        bst_update_cache_delete(tree, node);
+        jfs_fl_free(&tree->free_list, node);
+    } else { // the detach got a node that wasn't linked on the tree
+        jfs_bst_node_t *const detach_node = bst_container_node(tree, detach_value);
+        jfs_fl_free(&tree->free_list, detach_node);
     }
 }
 
-static void bst_fixup_cached_delete(jfs_bst_t *tree, const jfs_bst_node_t *node) {
-    if (tree->smallest == tree->largest) { // only one node in tree
+static void bst_update_cache_insert(jfs_bst_t *tree, const bst_location_t *location) {
+    // we don't use location->node because this is assumed to be nil
+    if (location->parent_cmp == -1 && location->parent == tree->cache.smallest) {
+        tree->cache.smallest = location->parent->left;
+    } else if (location->parent_cmp == 1 && location->parent == tree->cache.largest) {
+        tree->cache.largest = location->parent->right;
+    } else if (tree->cache.largest == tree->nil) { // we can assume if largest is nil so is smallest
+        tree->cache.largest = tree->root;
+        tree->cache.smallest = tree->root;
+    }
+}
+
+static void bst_update_cache_delete(jfs_bst_t *tree, const jfs_bst_node_t *node) {
+    if (tree->cache.smallest == tree->cache.largest) { // only one node in tree
         assert(node == tree->root);
-        tree->smallest = tree->nil;
-        tree->largest = tree->nil;
-    } else if (node == tree->smallest) {
-        assert(tree->smallest->left == tree->nil);
+        tree->cache.smallest = tree->nil;
+        tree->cache.largest = tree->nil;
+    } else if (node == tree->cache.smallest) {
+        assert(tree->cache.smallest->left == tree->nil);
 
-        if (tree->smallest->right != tree->nil) {
-            tree->smallest = bst_local_minimum(tree, tree->smallest->right);
+        if (tree->cache.smallest->right != tree->nil) {
+            tree->cache.smallest = bst_local_minimum(tree, tree->cache.smallest->right);
         } else {
-            tree->smallest = bst_parent(tree->smallest);
+            tree->cache.smallest = bst_parent(tree->cache.smallest);
         }
-    } else if (node == tree->largest) {
-        assert(tree->largest->right == tree->nil);
+    } else if (node == tree->cache.largest) {
+        assert(tree->cache.largest->right == tree->nil);
 
-        if (tree->largest->left != tree->nil) {
-            tree->largest = bst_local_maximum(tree, tree->largest->left);
+        if (tree->cache.largest->left != tree->nil) {
+            tree->cache.largest = bst_local_maximum(tree, tree->cache.largest->left);
         } else {
-            tree->largest = bst_parent(tree->largest);
+            tree->cache.largest = bst_parent(tree->cache.largest);
         }
     }
 }
